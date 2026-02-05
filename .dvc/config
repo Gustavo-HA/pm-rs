@@ -1,0 +1,4 @@
+[core]
+    remote = tesis
+['remote "tesis"']
+    url = gdrive://1kDAICuqYfMtzaJgBqzs8sgcURRTWjQ9H
