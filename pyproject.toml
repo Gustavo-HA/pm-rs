@@ -10,6 +10,7 @@ dependencies = [
     "pyarrow>=23.0.0",
     "scikit-learn>=1.8.0",
     "sentence-transformers>=5.2.2",
+    "surprise>=0.1",
     "torch>=2.10.0",
     "transformers>=5.1.0",
 ]

@@ -1659,6 +1659,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "scikit-learn" },
     { name = "sentence-transformers" },
+    { name = "surprise" },
     { name = "torch" },
     { name = "transformers" },
 ]
@@ -1682,6 +1683,7 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=23.0.0" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "sentence-transformers", specifier = ">=5.2.2" },
+    { name = "surprise", specifier = ">=0.1" },
     { name = "torch", specifier = ">=2.10.0" },
     { name = "transformers", specifier = ">=5.1.0" },
 ]
@@ -2290,6 +2292,17 @@ wheels = [
 ]
 
 [[package]]
+name = "scikit-surprise"
+version = "1.1.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d9/8d/40ac32e703f3808159f9e2b33760cfbd6224cc7783eb663091eddc9581c2/scikit_surprise-1.1.4.tar.gz", hash = "sha256:130c45feaee9de4b8cba0aff413ad9b51b2d5c5c90d41aee4759e00059913752", size = 154434, upload-time = "2024-05-19T14:25:59.527Z" }
+
+[[package]]
 name = "scipy"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2422,6 +2435,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707, upload-time = "2023-09-30T13:58:05.479Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521, upload-time = "2023-09-30T13:58:03.53Z" },
+]
+
+[[package]]
+name = "surprise"
+version = "0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scikit-surprise" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/de/e5cba8682201fcf9c3719a6fdda95693468ed061945493dea2dd37c5618b/surprise-0.1-py2.py3-none-any.whl", hash = "sha256:0b5ad9b2e1c07ad74b93ece2e74beca83a05e32c7bd2ff2dcff7261e4cad0305", size = 1821, upload-time = "2017-01-14T13:39:47.865Z" },
 ]
 
 [[package]]
