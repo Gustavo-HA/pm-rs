@@ -1,0 +1,13 @@
+\chapter{Modelación espacio-temporal} \label{chap:modeling}
+
+\section{Modelos espaciales} \label{sec:spatial_models}
+
+\subsubsection{Modelo Poisson-Gamma} \label{subsubsec:bayesian_poisson_gamma}
+
+Para este tipo de modelos es posible utilizar representaciones gráficas que reflejen la estructura de dependencias en la jerarquía. Esta representación es conocida como \textit{Grafo Acíclico Dirigido} (DAG). Las aristas conectan los niveles de la jerarquía y los parámetros son los vértices al final de las aristas (flechas). Es importante establecer un límite en la jerarquía ya que no es posible asumir una jerarquía de parámetros infinita. Usualmente el punto de corte se elige donde la variación de los hiperparámetros ya no afecta al nivel más bajo del modelo (primer nivel). En este punto los parámetros se asumen como valores fijos. Por ejemplo en el modelo \textit{Poisson-Gamma} si se fijan $\alpha$ y $\beta$ entonces la distribución a priori \textit{Gamma} será fija y los datos no nos darán información acerca de la distribución en lo absoluto. Sin embargo podemos permitir un nivel mayor de variación asignando hiperdistribuciones a priori para $\alpha$ y $\beta$, fijando los valores de $\nu$ y $\rho$ sin afectar radicalmente el nivel más bajo de variación. La \autoref{fig:dag_poisson_gamma} muestra el DAG para el modelo \textit{Poisson-Gamma} de dos niveles \citep{lawson2013bayesian}.
+
+\begin{figure}[htb!]
+\centering
+\includegraphics[width=0.8\textwidth]{img/example_hbm_lawson_01}
+\caption{Gráfica Acíclica Dirigida de la representación jerárquica del modelo Poisson-Gamma.}\label{fig:dag_poisson_gamma}
+\end{figure}

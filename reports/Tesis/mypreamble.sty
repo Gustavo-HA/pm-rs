@@ -1,0 +1,58 @@
+\ProvidesPackage{mypreamble}
+
+%-----------------------------------------------------------------------------%
+% Useful libraries
+
+\usepackage{amsmath,amsfonts,amsthm} % math packages
+\usepackage{amsbsy}  % bold symbols
+\usepackage{amssymb}  % math symbols
+\usepackage{verbatim} % typewriter font enviroment
+\usepackage{hyperref}  % for links
+\usepackage{subcaption}  % Subfigures
+\usepackage{float}  % to position figures
+\usepackage{url}  % for url's
+\usepackage{enumerate}  % listing items
+\usepackage{listing}  % must be load before minted
+\usepackage{minted}  % highlighting code
+\usepackage{caption}  % custom caption
+\usepackage{setspace}
+
+% bibliography
+\usepackage[natbibapa]{apacite}  % APA Style Bibliography with natbib
+\usepackage[nottoc]{tocbibind}  % bibliography is indexed but not numbered
+
+% heavier lines in tables: bottom-rule
+\usepackage{booktabs}
+
+%-----------------------------------------------------------------------------%
+% Customized colors (xcolor library is needed)
+
+\definecolor{orangeK}{RGB}{220,220,220}  % #ffb732
+\definecolor{customColorLink}{RGB}{0,0,128}
+
+%-----------------------------------------------------------------------------%
+% Settings for hyperlinks
+
+\hypersetup{
+  colorlinks   = true,  % Colours links instead of ugly boxes
+  urlcolor     = ForestGreen,  % Colour for external hyperlinks
+  linkcolor    = customColorLink,  % Colour of internal links
+  citecolor = FireBrick  % Colour for citations
+}  % colors specified by their svgnames
+
+% see: http://www.latextemplates.com/svgnames-colors
+
+%------------------------------------------------------------------------------%
+% Other settings
+
+\DeclareCaptionFont{grisCIMAT}{\color{grisCIMAT}}
+\DeclareCaptionFont{Purple}{\color{Purple}}
+
+\captionsetup{labelfont={Purple, bf}}  % caption label color
+\captionsetup{font={small}}  % caption size
+%\setlength\intextsep{0pt}  % space above and below of figure
+
+%-----------------------------------------------------------------------------%
+% Alias for commands
+
+\renewcommand{\listingscaption}{Código}  % Listing -> Algorithm (minted)

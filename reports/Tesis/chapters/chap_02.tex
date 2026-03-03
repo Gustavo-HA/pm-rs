@@ -1,0 +1,207 @@
+\chapter{Marco teórico} \label{chap:background}
+
+En este capítulo se presentan los fundamentos teóricos que sustentan el desarrollo de esta tesis. Se abordan tres ejes principales: los sistemas de recomendación, el procesamiento de lenguaje natural con enfoque en el análisis de sentimientos basado en aspectos, y las técnicas de optimización metaheurística. Adicionalmente, se discuten las métricas de evaluación empleadas y los fundamentos de explicabilidad en sistemas de recomendación.
+
+%% ============================================================
+%% 2.1  SISTEMAS DE RECOMENDACIÓN
+%% ============================================================
+\section{Sistemas de recomendación} \label{sec:recsys}
+
+% Definición formal del problema de recomendación.
+% Matriz de utilidad R ∈ ℝ^{|U|×|I|}, donde la mayoría de entradas son desconocidas.
+% Contextualizar con el dataset REST-MEX: |U|=9,582 usuarios, |I|=48 pueblos, sparsity=90.32%.
+
+% --------------------------------------------------------------
+\subsection{Filtrado colaborativo} \label{subsec:cf}
+
+% Idea central: usuarios con comportamiento similar en el pasado tendrán preferencias similares en el futuro.
+
+\subsubsection{Basado en Usuarios} \label{subsubsec:cf_memory}
+% User-based CF: similaridad entre usuarios (coseno, Pearson).
+% Item-based CF: similaridad entre ítems.
+% Predicción como promedio ponderado por similaridad.
+% Limitaciones: escalabilidad, sparsity, cold-start.
+
+\subsubsection{Basado en Items} \label{subsubsec:cf_model}
+% Factorización matricial: R ≈ P·Qᵀ, donde P ∈ ℝ^{|U|×k}, Q ∈ ℝ^{|I|×k}.
+% SVD, SVD++, NMF.
+% Función de pérdida con regularización:
+%   min_{p,q} Σ_{(u,i)∈κ} (r_{ui} - p_u^T q_i)^2 + λ(||p_u||^2 + ||q_i||^2)
+% Modelos baseline de la librería Surprise: KNNBasic, KNNWithMeans, SVD, SVD++, NMF, BaselineOnly.
+% Ejemplo: en REST-MEX, con k factores latentes representando dimensiones como "cultura" o "gastronomía".
+
+% --------------------------------------------------------------
+\subsection{Filtrado basado en contenido} \label{subsec:cbf}
+
+% Representación de ítems mediante vectores de características (perfil del ítem).
+% Perfil del usuario como agregación de los perfiles de ítems consumidos.
+% Similitud coseno entre perfil del usuario y candidatos.
+% En este proyecto: características extraídas de reseñas textuales via ABSA (Sección \ref{sec:absa}).
+% Ejemplo: perfil de aspectos de un pueblo = distribución de sentimientos por aspecto (servicio, gastronomía, naturaleza, ...).
+% Ventaja sobre CF puro: mitiga cold-start de ítems.
+
+% --------------------------------------------------------------
+\subsection{Sistemas híbridos} \label{subsec:hybrid}
+
+% Taxonomía de Burke (2002): weighted, switching, mixed, feature combination, cascade, feature augmentation, meta-level.
+% Justificar la estrategia elegida para esta tesis (feature augmentation / weighted).
+% Formalización: r̂_{ui} = α · r̂_{ui}^{CF} + (1-α) · r̂_{ui}^{CBF}, donde α es el parámetro de fusión.
+% Extensión: α puede ser un vector de pesos optimizado por metaheurística (Sección \ref{sec:metaheuristic}).
+% Ventaja: combina señales complementarias (patrones de rating + semántica textual).
+
+% --------------------------------------------------------------
+\subsection{Problema del arranque en frío y dispersión} \label{subsec:cold_start}
+
+% Cold-start de usuario: nuevos usuarios sin historial → CBF puede explotar contenido textual.
+% Cold-start de ítem: nuevos pueblos sin ratings → ABSA genera perfil desde reseñas.
+% Sparsity: 90.32% en REST-MEX. Impacto en CF basado en memoria.
+% Estrategias de mitigación: factorización matricial, incorporación de side information, sistemas híbridos.
+
+
+%% ============================================================
+%% 2.2  PROCESAMIENTO DE LENGUAJE NATURAL
+%% ============================================================
+\section{Procesamiento de lenguaje natural} \label{sec:nlp}
+
+% Breve contexto: el texto de reseñas como fuente de información semántica complementaria a los ratings numéricos.
+
+% --------------------------------------------------------------
+\subsection{Representación de texto} \label{subsec:text_repr}
+
+% Bag-of-Words, TF-IDF → limitaciones (pérdida de orden, alta dimensionalidad).
+% Word embeddings (Word2Vec, GloVe) → representaciones densas.
+% Embeddings contextuales (BERT, RoBERTa) → representaciones dependientes del contexto.
+
+% --------------------------------------------------------------
+\subsection{Arquitectura Transformer} \label{subsec:transformers}
+
+% Mecanismo de self-attention: Attention(Q,K,V) = softmax(QKᵀ/√d_k)V.
+% Multi-head attention, codificación posicional.
+% Modelos pre-entrenados y fine-tuning para tareas downstream.
+% Transfer learning: ventaja en dominios con datos etiquetados escasos (como turismo en español).
+
+
+%% ============================================================
+%% 2.3  ANÁLISIS DE SENTIMIENTOS BASADO EN ASPECTOS (ABSA)
+%% ============================================================
+\section{Análisis de sentimientos basado en aspectos} \label{sec:absa}
+
+% Definición formal: dado un texto t, identificar un conjunto de tuplas {(a_i, s_i)} donde a_i es un aspecto y s_i ∈ {positivo, negativo, neutro}.
+% Diferencia con análisis de sentimientos general: granularidad a nivel de aspecto, no de documento.
+% Ejemplo REST-MEX: "La comida estaba deliciosa pero el hotel tenía mal servicio"
+%   → {(gastronomía, positivo), (servicio, negativo)}.
+
+% --------------------------------------------------------------
+\subsection{Subtareas del ABSA} \label{subsec:absa_subtasks}
+
+% Aspect Term Extraction (ATE): identificar menciones explícitas de aspectos en el texto.
+% Aspect Category Detection (ACD): asignar categorías predefinidas (e.g., servicio, gastronomía, naturaleza).
+% Aspect Sentiment Classification (ASC): determinar polaridad por aspecto.
+% En esta tesis: ACD vía Zero-Shot + ASC vía modelo de sentimiento fine-tuned.
+
+% --------------------------------------------------------------
+\subsection{Clasificación Zero-Shot} \label{subsec:zero_shot}
+
+% Paradigma: clasificar sin ejemplos etiquetados para las clases objetivo.
+% Basado en Natural Language Inference (NLI): premisa=texto, hipótesis="Este texto habla sobre {aspecto}".
+% Modelo utilizado: Recognai/zeroshot_selectra_medium (SELECTRA, entrenado en español).
+% Ventaja: no requiere datos etiquetados específicos del dominio turístico para aspectos.
+% Limitación: dependencia de la formulación de las hipótesis y del conjunto de labels candidatos.
+
+% --------------------------------------------------------------
+\subsection{Análisis de sentimientos con modelos pre-entrenados} \label{subsec:sentiment_models}
+
+% Modelos para español: BETO, RoBERTuito, MarIA.
+% Modelo utilizado: pysentimiento/robertuito-sentiment-analysis.
+%   - Pre-entrenado en ~500M tweets en español.
+%   - Fine-tuned para clasificación de sentimiento (POS, NEG, NEU).
+% Pipeline: texto → segmentación en chunks → clasificación de aspecto (Zero-Shot) → clasificación de sentimiento → agregación.
+
+
+%% ============================================================
+%% 2.4  OPTIMIZACIÓN METAHEURÍSTICA
+%% ============================================================
+\section{Optimización metaheurística} \label{sec:metaheuristic}
+
+% Problema: encontrar los pesos óptimos de fusión del sistema híbrido.
+% Formulación: max_{θ} f(θ), donde θ = (α, hiperparámetros del modelo) y f es una métrica de ranking (e.g., NDCG@K).
+% Espacio de búsqueda no convexo, no diferenciable → justificación de metaheurísticas.
+
+% --------------------------------------------------------------
+\subsection{Optimización por enjambre de partículas (PSO)} \label{subsec:pso}
+
+% Algoritmo inspirado en comportamiento colectivo (bandadas, cardúmenes).
+% Partícula i con posición x_i y velocidad v_i:
+%   v_i(t+1) = ω·v_i(t) + c₁·r₁·(pbest_i - x_i(t)) + c₂·r₂·(gbest - x_i(t))
+%   x_i(t+1) = x_i(t) + v_i(t+1)
+% Parámetros: inercia ω, coeficientes cognitivo c₁ y social c₂.
+% Balance exploración-explotación.
+
+% --------------------------------------------------------------
+\subsection{Optimización bayesiana} \label{subsec:bayesian_opt}
+
+% Modelo sustituto (surrogate): Proceso Gaussiano GP(μ, k) que aproxima f(θ).
+% Función de adquisición: Expected Improvement, UCB, Probability of Improvement.
+%   EI(θ) = E[max(f(θ) - f(θ⁺), 0)]
+% Ventaja: eficiente en evaluaciones costosas (cada evaluación requiere entrenar y evaluar el RecSys completo).
+% Ciclo: evaluar → actualizar GP → optimizar adquisición → siguiente punto.
+
+% --------------------------------------------------------------
+\subsection{Evolución diferencial} \label{subsec:de}
+
+% Operadores: mutación, cruce, selección.
+% Mutación: v_i = x_{r1} + F·(x_{r2} - x_{r3}), donde F ∈ [0,2] es el factor de escala.
+% Cruce binomial con probabilidad CR.
+% Selección greedy: x_i(t+1) = u_i si f(u_i) ≥ f(x_i(t)), else x_i(t).
+% Variantes: DE/rand/1, DE/best/1, DE/current-to-best/1.
+
+
+%% ============================================================
+%% 2.5  MÉTRICAS DE EVALUACIÓN
+%% ============================================================
+\section{Métricas de evaluación} \label{sec:metrics}
+
+% Contexto: evaluación de sistemas Top-K; no basta RMSE/MAE del rating prediction.
+
+% --------------------------------------------------------------
+\subsection{Métricas de ranking} \label{subsec:ranking_metrics}
+
+\subsubsection{Precision@K y Recall@K}
+% Precision@K = |{ítems relevantes en top-K}| / K
+% Recall@K = |{ítems relevantes en top-K}| / |{total ítems relevantes}|
+% Trade-off precision-recall según K.
+
+\subsubsection{NDCG@K}
+% DCG@K = Σ_{i=1}^{K} (2^{rel_i} - 1) / log₂(i+1)
+% NDCG@K = DCG@K / IDCG@K
+% Penaliza ítems relevantes en posiciones bajas del ranking.
+% Métrica principal en esta tesis.
+
+\subsubsection{MRR (Mean Reciprocal Rank)}
+% MRR = (1/|U|) Σ_{u=1}^{|U|} 1/rank_u
+% Evalúa la posición del primer ítem relevante.
+
+% --------------------------------------------------------------
+\subsection{Métricas beyond-accuracy} \label{subsec:beyond_accuracy}
+
+\subsubsection{Diversidad}
+% Intra-list diversity: ILD = (2 / K(K-1)) Σ_{i<j} dist(item_i, item_j)
+% Importancia en turismo: evitar recomendar K pueblos del mismo estado/tipo.
+
+\subsubsection{Cobertura}
+% Catalog coverage = |{ítems recomendados al menos una vez}| / |I|
+% Relevante dado el desbalance geográfico del dataset (algunos pueblos con muchas más reseñas).
+
+
+%% ============================================================
+%% 2.6  EXPLICABILIDAD EN SISTEMAS DE RECOMENDACIÓN
+%% ============================================================
+\section{Explicabilidad en sistemas de recomendación} \label{sec:xai}
+
+% Motivación: confianza del usuario, transparencia, regulación.
+% Tipos de explicación: feature-based, example-based, textual.
+% En esta tesis: explicabilidad basada en aspectos.
+%   Ejemplo: "Se te recomienda Taxco porque valoras positivamente la cultura y la gastronomía,
+%             aspectos altamente evaluados en este pueblo."
+% Conexión ABSA → explicabilidad: los aspectos extraídos sirven como justificación interpretable.
+% Post-hoc vs inherent interpretability.
