@@ -17,7 +17,8 @@ from .config import (
     ASPECT_MODEL_NAME,
     SENTIMENT_MODEL_NAME,
     ID2LABEL_SENTIMENT,
-    LABEL2ID_SENTIMENT
+    LABEL2ID_SENTIMENT,
+    HYPOTHESIS_TEMPLATE,
 )
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,7 @@ class AspectSentimentExtractor:
                 res = self.aspect_classifier(
                     batch,
                     candidate_labels=labels,
-                    hypothesis_template="Este ejemplo es {}.",
+                    hypothesis_template=HYPOTHESIS_TEMPLATE,
                     batch_size=batch_size,
                 )
                 aspect_out.extend(res if isinstance(res, list) else [res])

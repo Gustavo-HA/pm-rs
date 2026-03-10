@@ -1,9 +1,26 @@
 # Configuraciones y constantes para la extracción de aspectos y sentimientos.
 
 ASPECTS_BY_TYPE: dict[str, list[str]] = {
-    "Restaurant": ["comida", "servicio", "precio", "ambiente", "hospitalidad"],
-    "Hotel": ["habitación", "servicio", "ubicación", "limpieza", "precio", "ambiente"],
-    "Attractive": ["naturaleza", "cultura", "servicio", "ambiente", "precio"],
+    "Restaurant": [
+        "servicio",
+        "precio",
+        "ambiente",
+        "comida",
+    ],
+    "Hotel": [
+        "servicio",
+        "precio",
+        "ambiente",
+        "ubicación",
+        "habitación",
+    ],
+    "Attractive": [
+        "servicio",
+        "ambiente",
+        "precio",
+        "naturaleza",
+        "cultura",
+    ],
 }
 
 # Modelos en Hugging Face
@@ -19,3 +36,5 @@ ID2LABEL_SENTIMENT = {
     4: "Muy Positivo"
 }
 LABEL2ID_SENTIMENT = {v: int(k) for k, v in ID2LABEL_SENTIMENT.items()}
+
+HYPOTHESIS_TEMPLATE = "Este ejemplo es {}."
