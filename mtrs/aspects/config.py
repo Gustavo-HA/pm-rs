@@ -37,4 +37,4 @@ ID2LABEL_SENTIMENT = {
 }
 LABEL2ID_SENTIMENT = {v: int(k) for k, v in ID2LABEL_SENTIMENT.items()}
 
-HYPOTHESIS_TEMPLATE = "Este ejemplo es {}."
+HYPOTHESIS_TEMPLATE = "Este texto trata sobre {}."
