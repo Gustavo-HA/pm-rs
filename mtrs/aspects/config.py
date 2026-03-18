@@ -38,3 +38,8 @@ ID2LABEL_SENTIMENT = {
 LABEL2ID_SENTIMENT = {v: int(k) for k, v in ID2LABEL_SENTIMENT.items()}
 
 HYPOTHESIS_TEMPLATE = "Este texto trata sobre {}."
+
+# Unión de todos los aspectos a través de los tipos de lugar (8 únicos)
+ALL_ASPECTS: list[str] = sorted(
+    {a for aspects in ASPECTS_BY_TYPE.values() for a in aspects}
+)
