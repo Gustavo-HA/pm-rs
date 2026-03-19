@@ -1,0 +1,58 @@
+# Interfaz base para todos los modelos del sistema de recomendación.
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+
+import pandas as pd
+
+
+class BaseRecommender(ABC):
+    """ABC con interfaz unificada: fit / predict / recommend."""
+
+    # ------------------------------------------------------------------ #
+    # API pública                                                          #
+    # ------------------------------------------------------------------ #
+
+    @abstractmethod
+    def fit(self, *args, **kwargs) -> "BaseRecommender":
+        """Entrena el modelo con las matrices disponibles."""
+        ...
+
+    @abstractmethod
+    def predict(self, user: str, pueblo: str) -> float:
+        """Predice r̂_{u,p} ∈ [1, 5]."""
+        ...
+
+    def recommend(
+        self,
+        user: str,
+        k: int = 10,
+        exclude_visited: bool = True,
+    ) -> list[tuple[str, float]]:
+        """Devuelve los top-K pueblos con mayor r̂_{u,p}.
+
+        Args:
+            user: identificador del usuario (Author).
+            k: número de recomendaciones.
+            exclude_visited: si True, excluye pueblos ya calificados en A.
+        """
+        candidates = list(self._all_pueblos)
+        if exclude_visited:
+            visited = self._visited(user)
+            candidates = [p for p in candidates if p not in visited]
+
+        scores = [(p, self.predict(user, p)) for p in candidates]
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return scores[:k]
+
+    # ------------------------------------------------------------------ #
+    # Hooks para subclases                                                 #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def _all_pueblos(self) -> list[str]:
+        raise NotImplementedError
+
+    def _visited(self, user: str) -> set[str]:
+        raise NotImplementedError
