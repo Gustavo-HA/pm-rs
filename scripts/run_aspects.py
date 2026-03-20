@@ -30,8 +30,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path("data/rest-mex")
-INPUT_FILE = DATA_DIR / "filtered_dataset.parquet"
+DATA_DIR = Path("data/rest-mex/splits")
+INPUT_FILE = DATA_DIR / "train.parquet"
 
 SPLITTERS = {
     "punkt": split_review_punkt,
@@ -39,8 +39,8 @@ SPLITTERS = {
 }
 
 OUTPUT_NAMES = {
-    "punkt": DATA_DIR / "punkt_aspect_sentiment.parquet",
-    "char": DATA_DIR / "char_aspect_sentiment.parquet",
+    "punkt": DATA_DIR / "absa" / "punkt_aspect_sentiment.parquet",
+    "char": DATA_DIR / "absa" / "char_aspect_sentiment.parquet",
 }
 
 

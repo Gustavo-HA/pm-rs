@@ -2,7 +2,8 @@
 Script para construir las cuatro matrices del sistema de recomendación multi-criterio.
 
 Entrada:
-  - data/rest-mex/punkt_aspect_sentiment.parquet  (ABSA output → M1, M2, M3, M4)
+  - data/rest-mex/absa/train_aspect_sentiment.parquet  (ABSA sobre split train)
+  - data/rest-mex/processed/filtered_dataset.parquet  (para M1, join con train authors)
 
 Salida (en data/rest-mex/matrices/):
   - A.parquet  — Matriz de ratings        (m × n)
@@ -12,8 +13,8 @@ Salida (en data/rest-mex/matrices/):
 
 Uso:
     uv run python scripts/build_matrices.py
-    uv run python scripts/build_matrices.py --absa data/rest-mex/char_aspect_sentiment.parquet
-    uv run python scripts/build_matrices.py --output-dir data/rest-mex/matrices_char
+    uv run python scripts/build_matrices.py --absa data/rest-mex/absa/train_aspect_sentiment.parquet
+    uv run python scripts/build_matrices.py --output-dir data/rest-mex/matrices
 """
 import argparse
 import logging
@@ -39,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path("data/rest-mex")
-DEFAULT_ABSA = DATA_DIR / "punkt_aspect_sentiment.parquet"
+DEFAULT_ABSA = DATA_DIR / "absa" / "train_aspect_sentiment.parquet"
 DEFAULT_OUTPUT = DATA_DIR / "matrices"
 
 
