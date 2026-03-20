@@ -1,5 +1,5 @@
 outs:
-- md5: 30196cd6671639755d44d102605edbd4
-  size: 22695349
+- md5: f67c0435cba3d3e14001f7c969a741b6
+  size: 17868761
   hash: md5
   path: punkt_aspect_sentiment.parquet

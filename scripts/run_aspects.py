@@ -30,8 +30,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path("data/rest-mex/splits")
-INPUT_FILE = DATA_DIR / "train.parquet"
+DATA_DIR = Path("data/rest-mex/")
+INPUT_FILE = DATA_DIR / "splits" / "train.parquet"
 
 SPLITTERS = {
     "punkt": split_review_punkt,
