@@ -4,49 +4,91 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Thesis project: **"Sistema de Recomendaci&oacute;n H&iacute;brido para Pueblos M&aacute;gicos: An&aacute;lisis de Aspectos y Optimizaci&oacute;n Metaheur&iacute;stica"** (Hybrid Recommender System for Pueblos M&aacute;gicos: Aspect-Based Analysis and Metaheuristic Optimization).
+Thesis project: **"Sistema de Recomendación Híbrido para Pueblos Mágicos: Análisis de Aspectos y Optimización Metaheurística"** — Hybrid Recommender System for Mexican Pueblos Mágicos using the REST-MEX dataset (79,264 reviews, 9,582 users, 48 Pueblos Mágicos). Sparsity: 90.32%; strong rating imbalance (mean: 4.41, 61.3% five-star).
 
-Hybrid recommender system (Collaborative Filtering + Content-Based) for Mexican Pueblos M&aacute;gicos using the REST-MEX dataset (79,264 reviews, 9,582 users, 48 Pueblos M&aacute;gicos). Sparsity: 90.32%, strong geographic/rating imbalance (mean: 4.41, 61.3% are 5-star).
-
-## Technical Context
-
-- **NLP Pipeline (ABSA)**: Aspect-Based Sentiment Analysis via Zero-Shot classification. Models: `Recognai/zeroshot_selectra_medium` (aspect classification), `pysentimiento/robertuito-sentiment-analysis` (sentiment). Candidate aspects under experimentation: "servicio", "gastronom&iacute;a", "naturaleza", "cultura", "hospitalidad", "precio", "ambiente" (and variations).
-- **Collaborative Filtering**: `Surprise` library for baseline recommendation algorithms.
-- **Optimization**: Metaheuristic fusion tuning (PSO, Bayesian, Differential Evolution — approach-agnostic).
-- **Evaluation**: NDCG@K, Recall@K, Precision@K, MRR, Diversity. Explainability (XAI) required.
-- **Goal**: Personalized Top-K recommendations per user, mitigating cold-start and high sparsity.
+The thesis document lives in `reports/Tesis/` (main file: `gha_tesis_26.tex`, chapters in `chapters/`, bibliography in `references.bib`).
 
 ## Environment & Commands
 
-- **Python**: 3.12 (`.python-version`)
-- **Package manager**: `uv` (lockfile: `uv.lock`, config: `pyproject.toml`)
-- **Setup**: `uv sync` (installs all deps including dev group)
+- **Package manager**: `uv` — use `uv sync` to install all deps (including dev group)
+- **Run python code**: `uv run script.py`
+- **Run notebook**: `uv run jupyter notebook`
 - **Add dependency**: `uv add <package>` / `uv add --group dev <package>`
-- **Run notebook**: `uv run jupyter notebook` or use VS Code/ipykernel
-- **Data versioning**: DVC with Google Drive remote (`dvc pull` to fetch data)
-- **GPU**: CUDA-enabled inference expected for transformer pipelines
+- **Data versioning**: DVC with Google Drive remote — `dvc pull` to fetch data
+- **GPU**: CUDA-enabled inference required for transformer pipelines (`--device cuda`)
 
-## Data
+### Pipeline Scripts
 
-All data lives under `data/rest-mex/` and is DVC-tracked:
-- `main_dataset.parquet` — Full cleaned dataset (306,854 reviews, 9 columns)
-- `filtered_dataset.parquet` — Iteratively filtered for density (users with &ge;3 distinct pueblos, pueblos with &ge;10 distinct places). **This is the working dataset** (79,264 reviews).
-- `unique_pueblos.csv` — Pueblo reference list
+Run in order from `scripts/`:
 
-Schema (filtered_dataset): `Author`, `Titulo`, `Review`, `Calificacion` (1-5 float), `FechaEstadia` (datetime), `Pueblo`, `Estado`, `Tipo` (Hotel/Restaurant/Attractive), `Lugar`
+```bash
+uv run scripts/split_dataset.py
+uv run scripts/run_aspects.py --splitter punkt --batch-size 64 --device cuda
+uv run scripts/build_matrices.py
+uv run scripts/run_models.py --k 5 10 20
+```
 
-Notebooks are also DVC-tracked (`notebooks.dvc`).
+## Data Pipeline
 
-## Architecture & Progress
+```
+filtered_dataset.parquet
+  → split_dataset.py      → splits/{train,test,excluded}.parquet   (last-month-out per user)
+  → run_aspects.py        → absa/{punkt|char}_aspect_sentiment.parquet
+  → build_matrices.py     → matrices/{A,X,Y,R}.parquet
+  → run_models.py         → evaluation metrics (P@K, R@K, NDCG@K, MRR, ILD, Coverage)
+```
 
-Project progress is tracked through notebooks in `notebooks/`:
+**Working dataset** (`data/rest-mex/processed/filtered_dataset.parquet`): users with ≥3 distinct pueblos, pueblos with ≥10 distinct places. Schema: `Author`, `Titulo`, `Review`, `Calificacion` (1–5 float), `FechaEstadia` (datetime), `Pueblo`, `Estado`, `Tipo` (Hotel/Restaurant/Attractive), `Lugar`.
 
-1. **`dataset.ipynb`** — Data ingestion from raw CSVs, cleaning (drop columns, parse dates), and iterative density filtering (`filter_dense` function). Produces both parquet files.
-2. **`stats.ipynb`** — Exploratory analysis: distributions, chi-square test, Correspondence Analysis (Pueblo vs Calificaci&oacute;n using `prince`).
-3. **`word-cloud.ipynb`** — Per-pueblo word clouds using NLTK stopwords for keyword discovery.
-4. **`zero-shot.ipynb`** — ABSA pipeline: `analyze_review()` chunks reviews (default 100 chars), classifies aspect (zero-shot) and sentiment per chunk. `analyze_reviews_batch()` provides batch inference with configurable `batch_size`.
+All data and notebooks are DVC-tracked.
 
-The `mtrs/` package (Magic Towns Recommender System) is the target for productionized code. Currently has an empty `aspects/` subpackage.
+## mtrs/ Package Architecture
+
+```
+mtrs/
+├── aspects/        # ABSA pipeline
+│   ├── config.py       # ASPECTS_BY_TYPE, ALL_ASPECTS, model names, hypothesis template
+│   ├── splitters.py    # split_review_punkt(), split_review_char()
+│   └── extractor.py    # AspectSentimentExtractor — orchestrates both HF pipelines
+├── aggregation/    # Matrix computation
+│   └── matrices.py     # compute_rating_matrix(), compute_user_aspect_importance(),
+│                       # compute_pueblo_aspect_quality(), compute_user_pueblo_aspect_sentiment()
+└── models/         # Recommender algorithms
+    ├── base.py         # BaseRecommender ABC: fit(), predict(), recommend()
+    ├── cf_classic.py   # CFClassic — SVD with biases (Koren et al. 2009)
+    ├── cf_multicriteria.py  # CFMultiCriteria — aspect-aware user-user CF (Musto et al. 2017)
+    ├── cb_quality.py   # CBQuality — content-based via aspect quality (Zhang et al. 2014)
+    └── cb_attention.py # CBAttention — user-user CF via cosine similarity on X matrix
+```
+
+### Key Mathematical Formulations
+
+- **CFClassic**: $\hat{r}_{u,p} = \mu + b_u + b_p + \mathbf{p}_u \cdot \mathbf{q}_p$ (SGD + L2 reg)
+- **CBQuality**: $\hat{r}_{u,p} = \sum_j X_{u,j} Y_{p,j} / \sum_j X_{u,j}$
+- **CBAttention**: $\hat{r}_{u,p} = \mu_u + \sum_v \text{sim}(u,v)(A_{v,p} - \mu_v) / \sum_v |\text{sim}(u,v)|$ where $\text{sim} = \cos(\mathbf{X}_u, \mathbf{X}_v)$
+
+### ABSA Models
+
+- **Aspect**: `Recognai/zeroshot_selectra_medium` (zero-shot classification)
+- **Sentiment**: `vg055/roberta-base-bne-finetuned-TripAdvisorDomainAdaptation` (5-class: Muy Negativo → Muy Positivo)
+- **Aspects by type** — Restaurant: [servicio, precio, ambiente, comida]; Hotel: [servicio, precio, ambiente, ubicación, habitación]; Attractive: [servicio, ambiente, precio, naturaleza, cultura]
+
+### Matrices
+
+| Matrix | Shape | Description |
+|--------|-------|-------------|
+| $A$ | users × pueblos | Mean rating per user-pueblo pair |
+| $X$ | users × aspects | User aspect importance (sigmoid-shifted frequency) |
+| $Y$ | pueblos × aspects | Pueblo aspect quality (volume-weighted sentiment) |
+| $R$ | (users × pueblos) × aspects | User-pueblo-aspect sentiment (MultiIndex) |
+
+## Thesis (LaTeX)
+
+- Main file: `reports/Tesis/gha_tesis_26.tex`
+- Chapters: `chap_01.tex` (intro), `chap_01b.tex`, `chap_02.tex`, `chap_03.tex`, `chap_04.tex`, `conclusions.tex`, `appendix.tex`
+- Bibliography: `references.bib`
+- Custom styles: `CIMATpreamble.sty`, `mypreamble.sty`
+- VS Code is configured to build with `latexmk-pygmentize` recipe
 
 ## Interaction Rules
 
@@ -55,4 +97,3 @@ The `mtrs/` package (Magic Towns Recommender System) is the target for productio
 - All mathematical formulas, loss functions, and algorithmic formulations must use LaTeX (`$...$` inline, `$$...$$` blocks).
 - When defining technical concepts, include a practical example applied to this dataset.
 - If given a problem in LaTeX, respond in LaTeX.
-- Ignore `reports/Tesis` directory for now.
