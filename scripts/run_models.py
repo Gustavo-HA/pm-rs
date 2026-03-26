@@ -17,6 +17,7 @@ Uso:
     uv run python scripts/run_models.py
     uv run python scripts/run_models.py --k 5 10 20
     uv run python scripts/run_models.py --output results/model_eval.csv
+    uv run python scripts/run_models.py --experiment my-experiment
 """
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ import sys
 import time
 from pathlib import Path
 
+import mlflow
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
@@ -49,6 +51,9 @@ SPLITS_DIR = DATA_DIR / "splits"
 # --------------------------------------------------------------------------- #
 # Métricas                                                                     #
 # --------------------------------------------------------------------------- #
+
+def hit_at_k(recs: list[str], relevant: set[str]) -> float:
+    return 1.0 if any(r in relevant for r in recs) else 0.0
 
 def precision_at_k(recs: list[str], relevant: set[str]) -> float:
     if not recs:
@@ -118,6 +123,7 @@ def evaluate_model(
         all_recommended.update(recs)
 
         metrics_per_user.append({
+            "hit": hit_at_k(recs, relevant),
             "precision": precision_at_k(recs, relevant),
             "recall": recall_at_k(recs, relevant),
             "ndcg": ndcg_at_k(recs, relevant),
@@ -152,6 +158,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="CSV de salida con resultados (opcional).",
+    )
+    parser.add_argument(
+        "--experiment",
+        type=str,
+        default="pm-rs",
+        help="Nombre del experimento en MLflow (default: pm-rs).",
     )
     parser.add_argument(
         "--cf-factors", type=int, default=100, help="Factores latentes para CFClassic."
@@ -207,45 +219,90 @@ def main() -> None:
         "CBQuality": CBQuality(),
     }
 
-    # ── Fit ──────────────────────────────────────────────────────────────── #
-    logger.info("Entrenando modelos…")
+    # ── MLflow ───────────────────────────────────────────────────────────── #
+    mlflow.set_experiment(args.experiment)
 
-    t0 = time.perf_counter()
-    models["CFClassic"].fit(A)
-    logger.info(f"  CFClassic       fit: {time.perf_counter() - t0:.1f}s")
+    # Hyperparams compartidos (se loguean en cada run para facilitar filtrado)
+    shared_params = {
+        "cf_factors": args.cf_factors,
+        "cf_epochs": args.cf_epochs,
+        "k_neighbors": args.k_neighbors,
+        "n_test_users": n_test_users,
+    }
 
-    t0 = time.perf_counter()
-    models["CFMultiCriteria"].fit(R, A)
-    logger.info(f"  CFMultiCriteria fit: {time.perf_counter() - t0:.1f}s")
+    fit_times: dict[str, float] = {}
+    
+    with mlflow.start_run(run_name="model_fitting", nested=True):
+        
+        # ── Fit ──────────────────────────────────────────────────────────────── #
+        logger.info("Entrenando modelos…")
 
-    t0 = time.perf_counter()
-    models["CBAttention"].fit(X, A)
-    logger.info(f"  CBAttention     fit: {time.perf_counter() - t0:.1f}s")
+        t0 = time.perf_counter()
+        models["CFClassic"].fit(A)
+        t1 = time.perf_counter()
+        cfclassic_fittime = t1 - t0
+        fit_times["CFClassic"] = cfclassic_fittime
+        logger.info(f"  CFClassic       fit: {cfclassic_fittime:.1f}s")
 
-    t0 = time.perf_counter()
-    models["CBQuality"].fit(X, Y, A)
-    logger.info(f"  CBQuality       fit: {time.perf_counter() - t0:.1f}s")
+        t0 = time.perf_counter()
+        models["CFMultiCriteria"].fit(R, A)
+        t1 = time.perf_counter()
+        cfmulticriteria_fittime = t1 - t0
+        fit_times["CFMultiCriteria"] = cfmulticriteria_fittime
+        logger.info(f"  CFMultiCriteria fit: {cfmulticriteria_fittime:.1f}s")
 
-    # ── Evaluar para cada K ──────────────────────────────────────────────── #
-    all_results: list[dict] = []
+        t0 = time.perf_counter()
+        models["CBAttention"].fit(X, A)
+        t1 = time.perf_counter()
+        cbattention_fittime = t1 - t0
+        fit_times["CBAttention"] = cbattention_fittime
+        logger.info(f"  CBAttention     fit: {cbattention_fittime:.1f}s")
 
-    for k in args.k:
-        logger.info(f"\n─── Evaluando K={k} ───")
+        t0 = time.perf_counter()
+        models["CBQuality"].fit(X, Y, A)
+        t1 = time.perf_counter()
+        cbquality_fittime = t1 - t0
+        fit_times["CBQuality"] = cbquality_fittime
+        logger.info(f"  CBQuality       fit: {cbquality_fittime:.1f}s")
+
+
+        # ── Evaluar para cada K ──────────────────────────────────────────────── #
+        all_results: list[dict] = []
+
+        for k in args.k:
+            logger.info(f"\n─── Evaluando K={k} ───")
+            for name, model in models.items():
+                t0 = time.perf_counter()
+                metrics = evaluate_model(model, ground_truth, k=k, Y=Y)
+                elapsed = time.perf_counter() - t0
+                logger.info(
+                    f"  {name:<20} "
+                    f"Hit@{k}={metrics['hit']:.4f}  "
+                    f"P@{k}={metrics['precision']:.4f}  "
+                    f"R@{k}={metrics['recall']:.4f}  "
+                    f"NDCG@{k}={metrics['ndcg']:.4f}  "
+                    f"MRR={metrics['mrr']:.4f}  "
+                    f"ILD={metrics['ild']:.4f}  "
+                    f"Cov={metrics['coverage']:.4f}  "
+                    f"({elapsed:.1f}s)"
+                )
+                all_results.append({"model": name, "K": k, **metrics})
+
         for name, model in models.items():
-            t0 = time.perf_counter()
-            metrics = evaluate_model(model, ground_truth, k=k, Y=Y)
-            elapsed = time.perf_counter() - t0
-            logger.info(
-                f"  {name:<20} "
-                f"P@{k}={metrics['precision']:.4f}  "
-                f"R@{k}={metrics['recall']:.4f}  "
-                f"NDCG@{k}={metrics['ndcg']:.4f}  "
-                f"MRR={metrics['mrr']:.4f}  "
-                f"ILD={metrics['ild']:.4f}  "
-                f"Cov={metrics['coverage']:.4f}  "
-                f"({elapsed:.1f}s)"
-            )
-            all_results.append({"model": name, "K": k, **metrics})
+            with mlflow.start_run(run_name=f"{name}", nested=True):
+                mlflow.log_params(shared_params)
+                mlflow.log_param("fit_time_sec", fit_times[name])
+                for k in args.k:
+                    result = next(r for r in all_results if r["model"] == name and r["K"] == k)
+                    mlflow.log_metrics({
+                        f"hit-{k}": result["hit"],
+                        f"precision-{k}": result["precision"],
+                        f"recall-{k}": result["recall"],
+                        f"ndcg-{k}": result["ndcg"],
+                        f"mrr-{k}": result["mrr"],
+                        f"ild-{k}": result["ild"],
+                        f"coverage-{k}": result["coverage"],
+                    })
 
     # ── Tabla resumen ────────────────────────────────────────────────────── #
     results_df = pd.DataFrame(all_results)
