@@ -13,6 +13,18 @@ class BaseRecommender(ABC):
     # API pública                                                          #
     # ------------------------------------------------------------------ #
 
+    def get_params(self) -> dict[str, object]:
+        """Devuelve los hiperparámetros del modelo (estilo sklearn)."""
+        import inspect
+
+        init = inspect.signature(self.__class__.__init__)
+        return {
+            name: getattr(self, name)
+            for name, param in init.parameters.items()
+            if name != "self"
+            and param.kind not in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+        }
+
     @abstractmethod
     def fit(self, *args, **kwargs) -> "BaseRecommender":
         """Entrena el modelo con las matrices disponibles."""
