@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -174,7 +175,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--k-neighbors", type=int, default=20, help="Vecinos para CFMultiCriteria / CBAttention."
     )
+    parser.add_argument(
+        "--cf-lr", type=float, default=0.005, help="Learning rate para CFClassic."
+    )
+    parser.add_argument(
+        "--cf-reg", type=float, default=0.02, help="Regularización L2 lambda para CFClassic."
+    )
     return parser.parse_args()
+
+
+# --------------------------------------------------------------------------- #
+# Artifacts                                                                    #
+# --------------------------------------------------------------------------- #
+
+def _log_model_artifacts(name: str, model: object) -> None:
+    """Guarda los pesos aprendidos del modelo como artifact en MLflow."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        artifact_path = Path(tmpdir) / f"{name}.npz"
+        if name == "CFClassic":
+            np.savez(
+                artifact_path,
+                mu=model._mu, bu=model._bu, bp=model._bp,
+                P=model._P, Q=model._Q,
+            )
+        elif name == "CFMultiCriteria":
+            np.savez(artifact_path, R_tensor=model._R_tensor)
+        elif name == "CBAttention":
+            np.savez(artifact_path, sim_matrix=model._sim_matrix, mu=model._mu)
+        elif name == "CBQuality":
+            np.savez(artifact_path, scores=model._scores.values)
+        mlflow.log_artifact(str(artifact_path))
 
 
 # --------------------------------------------------------------------------- #
@@ -194,6 +224,7 @@ def main() -> None:
 
     # ── Construir ground truth desde test ────────────────────────────────── #
     logger.info("Construyendo ground truth desde splits/test.parquet…")
+    train_df = pd.read_parquet(SPLITS_DIR / "train.parquet")
     test_df = pd.read_parquet(SPLITS_DIR / "test.parquet")
 
     # Solo usuarios presentes en A (train)
@@ -207,11 +238,25 @@ def main() -> None:
     n_test_users = len(ground_truth)
     logger.info(f"  {n_test_users:,} usuarios de test con pueblos en A")
 
+    # ── Registrar datasets para MLflow ───────────────────────────────────── #
+    train_dataset = mlflow.data.from_pandas(
+        train_df,
+        source=str(SPLITS_DIR / "train.parquet"),
+        name="train",
+    )
+    test_dataset = mlflow.data.from_pandas(
+        test_df,
+        source=str(SPLITS_DIR / "test.parquet"),
+        name="test",
+    )
+
     # ── Definir modelos ──────────────────────────────────────────────────── #
     models: dict[str, object] = {
         "CFClassic": CFClassic(
             n_factors=args.cf_factors,
             n_epochs=args.cf_epochs,
+            lr=args.cf_lr,
+            reg=args.cf_reg,
             random_state=42,
         ),
         "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
@@ -219,62 +264,53 @@ def main() -> None:
         "CBQuality": CBQuality(),
     }
 
-    # ── MLflow ───────────────────────────────────────────────────────────── #
+    # ── Fit de datos para los modelos que requieren entrenamiento ─────── #
+    fit_data: dict[str, tuple] = {
+        "CFClassic": (A,),
+        "CFMultiCriteria": (R, A),
+        "CBAttention": (X, A),
+        "CBQuality": (X, Y, A),
+    }
+
+    # ── MLflow — flat runs, uno por modelo ───────────────────────────────── #
+    mlflow.set_tracking_uri("http://0.0.0.0:1825")
     mlflow.set_experiment(args.experiment)
 
-    # Hyperparams compartidos (se loguean en cada run para facilitar filtrado)
-    shared_params = {
-        "cf_factors": args.cf_factors,
-        "cf_epochs": args.cf_epochs,
-        "k_neighbors": args.k_neighbors,
+    dataset_params = {
+        "A_shape": str(A.shape),
+        "X_shape": str(X.shape),
+        "Y_shape": str(Y.shape),
+        "R_shape": str(R.shape),
         "n_test_users": n_test_users,
     }
 
-    fit_times: dict[str, float] = {}
-    
-    with mlflow.start_run(run_name="model_fitting", nested=True):
-        
-        # ── Fit ──────────────────────────────────────────────────────────────── #
-        logger.info("Entrenando modelos…")
+    all_results: list[dict] = []
 
-        t0 = time.perf_counter()
-        models["CFClassic"].fit(A)
-        t1 = time.perf_counter()
-        cfclassic_fittime = t1 - t0
-        fit_times["CFClassic"] = cfclassic_fittime
-        logger.info(f"  CFClassic       fit: {cfclassic_fittime:.1f}s")
+    for name, model in models.items():
+        with mlflow.start_run(run_name=name):
+            # ── Datasets ─────────────────────────────────────────────── #
+            mlflow.log_input(train_dataset, context="training")
+            mlflow.log_input(test_dataset, context="testing")
 
-        t0 = time.perf_counter()
-        models["CFMultiCriteria"].fit(R, A)
-        t1 = time.perf_counter()
-        cfmulticriteria_fittime = t1 - t0
-        fit_times["CFMultiCriteria"] = cfmulticriteria_fittime
-        logger.info(f"  CFMultiCriteria fit: {cfmulticriteria_fittime:.1f}s")
+            # ── Params: dataset metadata + model hyperparameters ──── #
+            mlflow.log_params(dataset_params)
+            mlflow.log_params(model.get_params())
 
-        t0 = time.perf_counter()
-        models["CBAttention"].fit(X, A)
-        t1 = time.perf_counter()
-        cbattention_fittime = t1 - t0
-        fit_times["CBAttention"] = cbattention_fittime
-        logger.info(f"  CBAttention     fit: {cbattention_fittime:.1f}s")
+            # ── Fit ──────────────────────────────────────────────────── #
+            logger.info(f"Entrenando {name}…")
+            t0 = time.perf_counter()
+            model.fit(*fit_data[name])
+            fit_time = time.perf_counter() - t0
+            logger.info(f"  {name} fit: {fit_time:.1f}s")
 
-        t0 = time.perf_counter()
-        models["CBQuality"].fit(X, Y, A)
-        t1 = time.perf_counter()
-        cbquality_fittime = t1 - t0
-        fit_times["CBQuality"] = cbquality_fittime
-        logger.info(f"  CBQuality       fit: {cbquality_fittime:.1f}s")
+            mlflow.log_metric("fit_time_sec", fit_time)
 
-
-        # ── Evaluar para cada K ──────────────────────────────────────────────── #
-        all_results: list[dict] = []
-
-        for k in args.k:
-            logger.info(f"\n─── Evaluando K={k} ───")
-            for name, model in models.items():
+            # ── Eval para cada K ─────────────────────────────────────── #
+            for k in args.k:
                 t0 = time.perf_counter()
                 metrics = evaluate_model(model, ground_truth, k=k, Y=Y)
-                elapsed = time.perf_counter() - t0
+                eval_time = time.perf_counter() - t0
+
                 logger.info(
                     f"  {name:<20} "
                     f"Hit@{k}={metrics['hit']:.4f}  "
@@ -284,25 +320,27 @@ def main() -> None:
                     f"MRR={metrics['mrr']:.4f}  "
                     f"ILD={metrics['ild']:.4f}  "
                     f"Cov={metrics['coverage']:.4f}  "
-                    f"({elapsed:.1f}s)"
+                    f"({eval_time:.1f}s)"
                 )
+
+                mlflow.log_metrics(
+                    {
+                        "hit": metrics["hit"],
+                        "precision": metrics["precision"],
+                        "recall": metrics["recall"],
+                        "ndcg": metrics["ndcg"],
+                        "mrr": metrics["mrr"],
+                        "ild": metrics["ild"],
+                        "coverage": metrics["coverage"],
+                        "eval_time_sec": eval_time,
+                    },
+                    step=k,
+                )
+
                 all_results.append({"model": name, "K": k, **metrics})
 
-        for name, model in models.items():
-            with mlflow.start_run(run_name=f"{name}", nested=True):
-                mlflow.log_params(shared_params)
-                mlflow.log_param("fit_time_sec", fit_times[name])
-                for k in args.k:
-                    result = next(r for r in all_results if r["model"] == name and r["K"] == k)
-                    mlflow.log_metrics({
-                        f"hit-{k}": result["hit"],
-                        f"precision-{k}": result["precision"],
-                        f"recall-{k}": result["recall"],
-                        f"ndcg-{k}": result["ndcg"],
-                        f"mrr-{k}": result["mrr"],
-                        f"ild-{k}": result["ild"],
-                        f"coverage-{k}": result["coverage"],
-                    })
+            # ── Artifacts: pesos del modelo ──────────────────────────── #
+            _log_model_artifacts(name, model)
 
     # ── Tabla resumen ────────────────────────────────────────────────────── #
     results_df = pd.DataFrame(all_results)
