@@ -215,3 +215,4 @@ reports/RecommendTurismo/
 # DVC
 /notebooks
 /mlflow.db
+/mlruns
