@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-
+from typing import Self
 
 
 class BaseRecommender(ABC):
@@ -26,7 +26,7 @@ class BaseRecommender(ABC):
         }
 
     @abstractmethod
-    def fit(self, *args, **kwargs) -> "BaseRecommender":
+    def fit(self, *args, **kwargs) -> Self:
         """Entrena el modelo con las matrices disponibles."""
         ...
 

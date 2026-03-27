@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from typing import Self
+
 from .base import BaseRecommender
 
 
@@ -47,7 +49,7 @@ class CFMultiCriteria(BaseRecommender):
         self,
         R: pd.DataFrame,
         A: pd.DataFrame,
-    ) -> "CFMultiCriteria":
+    ) -> Self:
         """Construye el tensor de sentimientos y almacena A para predicciones.
 
         Args:

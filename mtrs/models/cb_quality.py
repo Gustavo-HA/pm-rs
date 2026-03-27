@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from typing import Self
+
 from .base import BaseRecommender
 
 
@@ -36,7 +38,7 @@ class CBQuality(BaseRecommender):
         X: pd.DataFrame,
         Y: pd.DataFrame,
         A: pd.DataFrame | None = None,
-    ) -> "CBQuality":
+    ) -> Self:
         """Precomputa r̂_{u,p}^{qual} = (X_u / ‖X_u‖₁) · Y_p para todos los pares.
 
         Args:

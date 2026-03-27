@@ -20,6 +20,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from typing import Self
+
 from .base import BaseRecommender
 
 
@@ -44,7 +46,7 @@ class CBAttention(BaseRecommender):
         self,
         X: pd.DataFrame,
         A: pd.DataFrame,
-    ) -> "CBAttention":
+    ) -> Self:
         """Precomputa la matriz de similitud coseno (m × m) sobre X.
 
         Args:

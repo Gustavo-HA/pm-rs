@@ -21,6 +21,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from typing import Self
+
 from .base import BaseRecommender
 
 
@@ -54,7 +56,7 @@ class CFClassic(BaseRecommender):
 
     # ------------------------------------------------------------------ #
 
-    def fit(self, A: pd.DataFrame) -> "CFClassic":  # type: ignore[override]
+    def fit(self, A: pd.DataFrame) -> Self:  # type: ignore[override]
         """Entrena sobre la matriz de ratings A (usuarios × pueblos).
 
         Los NaN en A se interpretan como ratings no observados y se omiten.
