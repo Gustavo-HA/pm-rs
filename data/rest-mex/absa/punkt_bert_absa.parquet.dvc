@@ -1,0 +1,5 @@
+outs:
+- md5: 9cfdd9c9339f34e1d52e83d523a4acbe
+  size: 17866791
+  hash: md5
+  path: punkt_bert_absa.parquet
