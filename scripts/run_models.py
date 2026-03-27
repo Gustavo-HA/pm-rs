@@ -147,6 +147,12 @@ def evaluate_model(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluación de modelos del RecSys.")
     parser.add_argument(
+        "--matrices-dir",
+        type=Path,
+        default=MATRICES_DIR,
+        help=f"Directorio con matrices A, X, Y, R (default: {MATRICES_DIR}).",
+    )
+    parser.add_argument(
         "--k",
         type=int,
         nargs="+",
@@ -164,6 +170,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="pm-rs",
         help="Nombre del experimento en MLflow (default: pm-rs).",
+    )
+    parser.add_argument(
+        "--prefix",
+        type=str,
+        default="",
+        help="Prefijo para nombres de run en MLflow (default: '').",
     )
     parser.add_argument(
         "--cf-factors", type=int, default=100, help="Factores latentes para CFClassic."
@@ -213,12 +225,15 @@ def _log_model_artifacts(name: str, model: object) -> None:
 def main() -> None:
     args = parse_args()
 
+    matrices_dir = args.matrices_dir or MATRICES_DIR
+    logger.info(f"Usando matrices en {matrices_dir}")
+
     # ── Cargar matrices ──────────────────────────────────────────────────── #
     logger.info("Cargando matrices…")
-    A = pd.read_parquet(MATRICES_DIR / "A.parquet")
-    X = pd.read_parquet(MATRICES_DIR / "X.parquet")
-    Y = pd.read_parquet(MATRICES_DIR / "Y.parquet")
-    R = pd.read_parquet(MATRICES_DIR / "R.parquet")
+    A = pd.read_parquet(matrices_dir / "A.parquet")
+    X = pd.read_parquet(matrices_dir / "X.parquet")
+    Y = pd.read_parquet(matrices_dir / "Y.parquet")
+    R = pd.read_parquet(matrices_dir / "R.parquet")
     logger.info(f"  A: {A.shape}  X: {X.shape}  Y: {Y.shape}  R: {R.shape}")
 
     # ── Construir ground truth desde test ────────────────────────────────── #
@@ -286,7 +301,7 @@ def main() -> None:
     all_results: list[dict] = []
 
     for name, model in models.items():
-        with mlflow.start_run(run_name=name):
+        with mlflow.start_run(run_name=f"{args.prefix}_{name}"):
             # ── Datasets ─────────────────────────────────────────────── #
             mlflow.log_input(train_dataset, context="training")
             mlflow.log_input(test_dataset, context="testing")
