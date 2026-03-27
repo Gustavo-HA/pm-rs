@@ -18,6 +18,7 @@ Uso:
     uv run python scripts/split_dataset.py --input data/rest-mex/processed/filtered_dataset.parquet
     uv run python scripts/split_dataset.py --output-dir data/rest-mex/splits
 """
+
 import argparse
 import logging
 import sys
@@ -78,10 +79,9 @@ def compute_splits(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Dat
     first_visit = first_visit.join(last_visit, on="Author")
 
     # Pueblo en test si su primera visita es en el mismo mes-año que la última
-    first_visit["in_test"] = (
-        first_visit["FirstVisit"].dt.to_period("M")
-        == first_visit["LastVisit"].dt.to_period("M")
-    )
+    first_visit["in_test"] = first_visit["FirstVisit"].dt.to_period("M") == first_visit[
+        "LastVisit"
+    ].dt.to_period("M")
 
     # Usuarios con 100% pueblos en test → excluir
     user_stats = first_visit.groupby("Author")["in_test"].agg(["sum", "count"])
@@ -111,7 +111,9 @@ def compute_splits(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Dat
     return train, test, df_excluded
 
 
-def log_split_stats(train: pd.DataFrame, test: pd.DataFrame, excluded: pd.DataFrame) -> None:
+def log_split_stats(
+    train: pd.DataFrame, test: pd.DataFrame, excluded: pd.DataFrame
+) -> None:
     total_reviews = len(train) + len(test) + len(excluded)
     logger.info("—— Resumen del split ——")
     logger.info(f"  Reviews totales (original): {total_reviews:,}")
@@ -162,7 +164,9 @@ def main() -> None:
 
     logger.info("Cargando dataset…")
     df = pd.read_parquet(args.input)
-    logger.info(f"  {len(df):,} reviews | {df['Author'].nunique():,} usuarios | {df['Pueblo'].nunique()} pueblos")
+    logger.info(
+        f"  {len(df):,} reviews | {df['Author'].nunique():,} usuarios | {df['Pueblo'].nunique()} pueblos"
+    )
 
     logger.info("Calculando split temporal (last-month-out)…")
     train, test, excluded = compute_splits(df)

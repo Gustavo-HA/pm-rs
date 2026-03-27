@@ -6,5 +6,5 @@ __all__ = [
     "AspectSentimentExtractor",
     "split_review_punkt",
     "split_review_char",
-    "ASPECTS_BY_TYPE"
+    "ASPECTS_BY_TYPE",
 ]

@@ -69,7 +69,7 @@ class CFMultiCriteria(BaseRecommender):
 
         # Ratings para predicción ponderada
         self._A = A.reindex(index=self._users, columns=self._pueblos)
-        self._A_vals = self._A.values.copy()   # (m, n) float64
+        self._A_vals = self._A.values.copy()  # (m, n) float64
 
         # Tensor de sentimientos R: (m, n, p) — NaN donde no disponible
         R_tensor = np.full(
@@ -88,8 +88,7 @@ class CFMultiCriteria(BaseRecommender):
 
         # Mapa de pueblos visitados (observados en A)
         self._visited_map: dict[str, set[str]] = {
-            user: set(row.dropna().index)
-            for user, row in A.iterrows()
+            user: set(row.dropna().index) for user, row in A.iterrows()
         }
 
         # Cache de similaridad (se llena bajo demanda)
@@ -114,23 +113,23 @@ class CFMultiCriteria(BaseRecommender):
         if ui is None:
             return np.zeros(self._n_users, dtype=np.float32)
 
-        R_u = self._R_tensor[ui]          # (n, p) — fila del usuario objetivo
-        R_all = self._R_tensor             # (m, n, p) — todos los usuarios
+        R_u = self._R_tensor[ui]  # (n, p) — fila del usuario objetivo
+        R_all = self._R_tensor  # (m, n, p) — todos los usuarios
 
         # Diferencias por aspecto: (m, n, p)
         diff = R_all - R_u[np.newaxis, :, :]  # broadcast sobre eje de usuarios
 
         # Máscara: aspecto válido = ambos no-NaN
-        valid_u = ~np.isnan(R_u)           # (n, p)
-        valid_all = ~np.isnan(R_all)       # (m, n, p)
+        valid_u = ~np.isnan(R_u)  # (n, p)
+        valid_all = ~np.isnan(R_all)  # (m, n, p)
         valid = valid_all & valid_u[np.newaxis, :, :]  # (m, n, p)
 
         # Distancia Euclidiana por pueblo (solo aspectos válidos en par)
-        diff_sq = np.where(valid, diff ** 2, 0.0)      # (m, n, p)
-        pueblo_dist = np.sqrt(diff_sq.sum(axis=2))     # (m, n)
+        diff_sq = np.where(valid, diff**2, 0.0)  # (m, n, p)
+        pueblo_dist = np.sqrt(diff_sq.sum(axis=2))  # (m, n)
 
         # Pueblos co-visitados: al menos un aspecto válido común
-        co_visited = valid.any(axis=2)                 # (m, n) bool
+        co_visited = valid.any(axis=2)  # (m, n) bool
 
         n_common = co_visited.sum(axis=1).astype(np.float32)  # (m,)
 
@@ -143,7 +142,7 @@ class CFMultiCriteria(BaseRecommender):
 
         # Similitud = 1 / (1 + dist); para inf → 0
         similarity = 1.0 / (1.0 + mean_dist)
-        similarity[ui] = 0.0   # excluir self-similarity
+        similarity[ui] = 0.0  # excluir self-similarity
 
         self._sim_cache[user] = similarity.astype(np.float32)
         return self._sim_cache[user]
@@ -159,10 +158,10 @@ class CFMultiCriteria(BaseRecommender):
         sim = self._similarity_vector(user)
 
         # Solo vecinos con A_{v,p} observado
-        a_col = self._A_vals[:, pi]             # (m,)
-        observed = ~np.isnan(a_col)             # (m,) bool
+        a_col = self._A_vals[:, pi]  # (m,)
+        observed = ~np.isnan(a_col)  # (m,) bool
 
-        active_sim = sim * observed             # zero out unobserved
+        active_sim = sim * observed  # zero out unobserved
         if active_sim.sum() == 0:
             return float(np.nanmean(a_col)) if np.any(observed) else 3.0
 

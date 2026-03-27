@@ -70,8 +70,7 @@ class CFClassic(BaseRecommender):
         self._pueblo_idx = {p: i for i, p in enumerate(self._pueblos)}
 
         self._visited_map: dict[str, set[str]] = {
-            user: set(row.dropna().index)
-            for user, row in A.iterrows()
+            user: set(row.dropna().index) for user, row in A.iterrows()
         }
 
         # Construir lista de tripletas (ui, pi, r) observadas
@@ -97,12 +96,7 @@ class CFClassic(BaseRecommender):
             idx = rng.permutation(len(ratings_obs))
             for i in idx:
                 u, p, r = int(users_obs[i]), int(items_obs[i]), ratings_obs[i]
-                pred = (
-                    self._mu
-                    + self._bu[u]
-                    + self._bp[p]
-                    + self._P[u] @ self._Q[p]
-                )
+                pred = self._mu + self._bu[u] + self._bp[p] + self._P[u] @ self._Q[p]
                 e = r - pred
                 self._bu[u] += lr * (e - reg * self._bu[u])
                 self._bp[p] += lr * (e - reg * self._bp[p])
@@ -121,12 +115,7 @@ class CFClassic(BaseRecommender):
         if ui is None or pi is None:
             return self._mu
 
-        score = (
-            self._mu
-            + self._bu[ui]
-            + self._bp[pi]
-            + self._P[ui] @ self._Q[pi]
-        )
+        score = self._mu + self._bu[ui] + self._bp[pi] + self._P[ui] @ self._Q[pi]
         return float(np.clip(score, 1.0, 5.0))
 
     # ------------------------------------------------------------------ #

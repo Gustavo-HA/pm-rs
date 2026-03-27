@@ -52,11 +52,11 @@ class CBQuality(BaseRecommender):
         Y = Y[aspects]
 
         # Normalización L1 por usuario: w_{u,j} = X_{u,j} / Σ_j X_{u,j}
-        row_sums = X.sum(axis=1).replace(0, 1)   # evitar / 0
-        W = X.div(row_sums, axis=0)              # (m, p) — pesos normalizados
+        row_sums = X.sum(axis=1).replace(0, 1)  # evitar / 0
+        W = X.div(row_sums, axis=0)  # (m, p) — pesos normalizados
 
         # Producto matricial: (m, p) · (p, n) → (m, n)
-        scores_arr = W.values @ Y.values.T        # (m, n)
+        scores_arr = W.values @ Y.values.T  # (m, n)
 
         self._scores = pd.DataFrame(
             scores_arr,
@@ -69,8 +69,7 @@ class CBQuality(BaseRecommender):
         # Mapa de visitas desde A (opcional)
         if A is not None:
             self._visited_map: dict[str, set[str]] = {
-                user: set(row.dropna().index)
-                for user, row in A.iterrows()
+                user: set(row.dropna().index) for user, row in A.iterrows()
             }
         else:
             self._visited_map = {}

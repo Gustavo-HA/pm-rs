@@ -30,6 +30,7 @@ def _signed_sentiment(df: pd.DataFrame) -> pd.Series:
 # A_{u,p}  —  Matriz de Ratings
 # ---------------------------------------------------------------------------
 
+
 def compute_rating_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """Calcula la matriz de ratings promedio por usuario y pueblo.
 
@@ -42,12 +43,11 @@ def compute_rating_matrix(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Shape (n_users, n_pueblos), valores en [1, 5].
     """
-    unique_reviews = (
-        df.drop_duplicates(subset="review_idx")[["Author", "Pueblo", "Calificacion"]]
-    )
+    unique_reviews = df.drop_duplicates(subset="review_idx")[
+        ["Author", "Pueblo", "Calificacion"]
+    ]
     A = (
-        unique_reviews
-        .groupby(["Author", "Pueblo"])["Calificacion"]
+        unique_reviews.groupby(["Author", "Pueblo"])["Calificacion"]
         .mean()
         .unstack(level="Pueblo")
     )
@@ -57,6 +57,7 @@ def compute_rating_matrix(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # R_{u,p,j}  —  Sentimiento usuario–pueblo–aspecto
 # ---------------------------------------------------------------------------
+
 
 def compute_user_pueblo_aspect_sentiment(df: pd.DataFrame) -> pd.DataFrame:
     """Calcula el sentimiento promedio por (usuario, pueblo, aspecto).
@@ -74,8 +75,7 @@ def compute_user_pueblo_aspect_sentiment(df: pd.DataFrame) -> pd.DataFrame:
     signed["sent_score"] = _signed_sentiment(signed)
 
     R = (
-        signed
-        .groupby(["Author", "Pueblo", "aspect"])["sent_score"]
+        signed.groupby(["Author", "Pueblo", "aspect"])["sent_score"]
         .mean()
         .unstack(level="aspect")
         .reindex(columns=ALL_ASPECTS)
@@ -86,6 +86,7 @@ def compute_user_pueblo_aspect_sentiment(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # X_{u,j}  —  Importancia usuario–aspecto
 # ---------------------------------------------------------------------------
+
 
 def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame:
     """Calcula la importancia que cada usuario asigna a cada aspecto.
@@ -98,11 +99,11 @@ def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame
     La función sigmoide desplazada mapea t in [0, inf) -> X in [1, N]:
       - t=0   => X=1   (aspecto nunca mencionado)
       - t->inf => X->N (aspecto muy frecuente)
-      
+
     Args:
-        df: DataFrame con columnas ['Author', 'aspect']. 
+        df: DataFrame con columnas ['Author', 'aspect'].
             Cada fila representa un chunk clasificado en un aspecto por un usuario.
-        T: Temperatura para ajustar la sensibilidad de la función sigmoide. 
+        T: Temperatura para ajustar la sensibilidad de la función sigmoide.
            Valores más bajos hacen que X crezca más rápido
 
     Returns:
@@ -126,6 +127,7 @@ def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame
 # ---------------------------------------------------------------------------
 # Y_{p,j}  —  Calidad pueblo–aspecto
 # ---------------------------------------------------------------------------
+
 
 def compute_pueblo_aspect_quality(df: pd.DataFrame, T: int = 100) -> pd.DataFrame:
     """Calcula la calidad de cada pueblo en cada aspecto.
@@ -160,9 +162,7 @@ def compute_pueblo_aspect_quality(df: pd.DataFrame, T: int = 100) -> pd.DataFram
         .reindex(columns=ALL_ASPECTS, fill_value=0.0)
     )
     counts = (
-        grouped.size()
-        .unstack(fill_value=0)
-        .reindex(columns=ALL_ASPECTS, fill_value=0)
+        grouped.size().unstack(fill_value=0).reindex(columns=ALL_ASPECTS, fill_value=0)
     )
     phi = np.log1p(counts.values)
 

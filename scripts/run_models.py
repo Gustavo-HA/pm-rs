@@ -19,6 +19,7 @@ Uso:
     uv run python scripts/run_models.py --output results/model_eval.csv
     uv run python scripts/run_models.py --experiment my-experiment
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,8 +53,10 @@ SPLITS_DIR = DATA_DIR / "splits"
 # Métricas                                                                     #
 # --------------------------------------------------------------------------- #
 
+
 def hit_at_k(recs: list[str], relevant: set[str]) -> float:
     return 1.0 if any(r in relevant for r in recs) else 0.0
+
 
 def precision_at_k(recs: list[str], relevant: set[str]) -> float:
     if not recs:
@@ -71,11 +74,7 @@ def recall_at_k(recs: list[str], relevant: set[str]) -> float:
 
 def ndcg_at_k(recs: list[str], relevant: set[str]) -> float:
     """Binary relevance NDCG@K."""
-    dcg = sum(
-        1.0 / np.log2(i + 2)
-        for i, r in enumerate(recs)
-        if r in relevant
-    )
+    dcg = sum(1.0 / np.log2(i + 2) for i, r in enumerate(recs) if r in relevant)
     ideal_hits = min(len(recs), len(relevant))
     idcg = sum(1.0 / np.log2(i + 2) for i in range(ideal_hits))
     return dcg / idcg if idcg > 0 else 0.0
@@ -122,14 +121,16 @@ def evaluate_model(
         recs = [pueblo for pueblo, _ in model.recommend(user, k=k)]
         all_recommended.update(recs)
 
-        metrics_per_user.append({
-            "hit": hit_at_k(recs, relevant),
-            "precision": precision_at_k(recs, relevant),
-            "recall": recall_at_k(recs, relevant),
-            "ndcg": ndcg_at_k(recs, relevant),
-            "mrr": mrr(recs, relevant),
-            "ild": intra_list_diversity(recs, Y),
-        })
+        metrics_per_user.append(
+            {
+                "hit": hit_at_k(recs, relevant),
+                "precision": precision_at_k(recs, relevant),
+                "recall": recall_at_k(recs, relevant),
+                "ndcg": ndcg_at_k(recs, relevant),
+                "mrr": mrr(recs, relevant),
+                "ild": intra_list_diversity(recs, Y),
+            }
+        )
 
     agg = {
         metric: float(np.mean([m[metric] for m in metrics_per_user]))
@@ -143,6 +144,7 @@ def evaluate_model(
 # --------------------------------------------------------------------------- #
 # CLI                                                                          #
 # --------------------------------------------------------------------------- #
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluación de modelos del RecSys.")
@@ -184,13 +186,19 @@ def parse_args() -> argparse.Namespace:
         "--cf-epochs", type=int, default=20, help="Épocas SGD para CFClassic."
     )
     parser.add_argument(
-        "--k-neighbors", type=int, default=20, help="Vecinos para CFMultiCriteria / CBAttention."
+        "--k-neighbors",
+        type=int,
+        default=20,
+        help="Vecinos para CFMultiCriteria / CBAttention.",
     )
     parser.add_argument(
         "--cf-lr", type=float, default=0.005, help="Learning rate para CFClassic."
     )
     parser.add_argument(
-        "--cf-reg", type=float, default=0.02, help="Regularización L2 lambda para CFClassic."
+        "--cf-reg",
+        type=float,
+        default=0.02,
+        help="Regularización L2 lambda para CFClassic.",
     )
     return parser.parse_args()
 
@@ -199,6 +207,7 @@ def parse_args() -> argparse.Namespace:
 # Artifacts                                                                    #
 # --------------------------------------------------------------------------- #
 
+
 def _log_model_artifacts(name: str, model: object) -> None:
     """Guarda los pesos aprendidos del modelo como artifact en MLflow."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -206,8 +215,11 @@ def _log_model_artifacts(name: str, model: object) -> None:
         if name == "CFClassic":
             np.savez(
                 artifact_path,
-                mu=model._mu, bu=model._bu, bp=model._bp,
-                P=model._P, Q=model._Q,
+                mu=model._mu,
+                bu=model._bu,
+                bp=model._bp,
+                P=model._P,
+                Q=model._Q,
             )
         elif name == "CFMultiCriteria":
             np.savez(artifact_path, R_tensor=model._R_tensor)
@@ -221,6 +233,7 @@ def _log_model_artifacts(name: str, model: object) -> None:
 # --------------------------------------------------------------------------- #
 # Main                                                                         #
 # --------------------------------------------------------------------------- #
+
 
 def main() -> None:
     args = parse_args()
@@ -245,9 +258,7 @@ def main() -> None:
     test_df = test_df[test_df["Author"].isin(A.index)]
 
     ground_truth: dict[str, set[str]] = (
-        test_df.groupby("Author")["Pueblo"]
-        .apply(set)
-        .to_dict()
+        test_df.groupby("Author")["Pueblo"].apply(set).to_dict()
     )
     n_test_users = len(ground_truth)
     logger.info(f"  {n_test_users:,} usuarios de test con pueblos en A")
@@ -365,7 +376,9 @@ def main() -> None:
 
     for k in args.k:
         sub = results_df[results_df["K"] == k].set_index("model").drop(columns="K")
-        sub.columns = [f"{c}@{k}" if c not in ("ild", "coverage") else c for c in sub.columns]
+        sub.columns = [
+            f"{c}@{k}" if c not in ("ild", "coverage") else c for c in sub.columns
+        ]
         print(f"\n── K = {k} ──")
         print(sub.to_string(float_format=lambda x: f"{x:.4f}"))
 

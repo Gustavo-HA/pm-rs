@@ -16,6 +16,7 @@ Uso:
     uv run python scripts/build_matrices.py --absa data/rest-mex/absa/train_aspect_sentiment.parquet
     uv run python scripts/build_matrices.py --output-dir data/rest-mex/matrices
 """
+
 import argparse
 import logging
 import sys

@@ -7,6 +7,7 @@ Uso:
     uv run python scripts/run_aspects.py --splitter char --batch-size 128
     uv run python scripts/run_aspects.py --device cpu --output data/rest-mex/custom_output.parquet
 """
+
 import argparse
 import logging
 from pathlib import Path
@@ -81,7 +82,9 @@ def main() -> None:
     split_fn = SPLITTERS[args.splitter]
 
     logger.info(f"Dataset: {INPUT_FILE}")
-    logger.info(f"Splitter: {args.splitter} | Batch size: {args.batch_size} | Device: {args.device}")
+    logger.info(
+        f"Splitter: {args.splitter} | Batch size: {args.batch_size} | Device: {args.device}"
+    )
     logger.info(f"Output: {output_path}")
 
     df = pd.read_parquet(INPUT_FILE)

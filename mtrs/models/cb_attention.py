@@ -63,11 +63,11 @@ class CBAttention(BaseRecommender):
         # Normalizar L2 por fila para similitud coseno
         norms = np.linalg.norm(X_aligned.values, axis=1, keepdims=True)
         norms = np.where(norms == 0, 1.0, norms)
-        X_norm = X_aligned.values / norms           # (m, p)
+        X_norm = X_aligned.values / norms  # (m, p)
 
         # Matriz de similitud coseno completa: (m, m)
         self._sim_matrix = (X_norm @ X_norm.T).astype(np.float32)
-        np.fill_diagonal(self._sim_matrix, 0.0)     # excluir self-sim
+        np.fill_diagonal(self._sim_matrix, 0.0)  # excluir self-sim
 
         # Ratings y medias de usuario
         self._A_vals = A.reindex(index=self._users, columns=self._pueblos).values.copy()
@@ -75,8 +75,7 @@ class CBAttention(BaseRecommender):
 
         # Mapa de visitas
         self._visited_map: dict[str, set[str]] = {
-            user: set(row.dropna().index)
-            for user, row in A.iterrows()
+            user: set(row.dropna().index) for user, row in A.iterrows()
         }
         return self
 
@@ -89,10 +88,10 @@ class CBAttention(BaseRecommender):
         if ui is None or pi is None:
             return 3.0
 
-        sim_u = self._sim_matrix[ui]               # (m,)
+        sim_u = self._sim_matrix[ui]  # (m,)
 
         # Solo vecinos con A_{v,p} observado y similitud ≥ min_sim
-        a_col = self._A_vals[:, pi]                # (m,)
+        a_col = self._A_vals[:, pi]  # (m,)
         observed = ~np.isnan(a_col)
         active_sim = np.where(observed & (sim_u >= self.min_sim), sim_u, 0.0)
 
@@ -107,7 +106,7 @@ class CBAttention(BaseRecommender):
 
         top_k = np.argpartition(-active_sim, k)[:k]
         w = active_sim[top_k]
-        dev = a_col[top_k] - self._mu[top_k]       # A_{v,p} - μ_v
+        dev = a_col[top_k] - self._mu[top_k]  # A_{v,p} - μ_v
         valid = ~np.isnan(dev) & (w > 0)
 
         if not valid.any():
