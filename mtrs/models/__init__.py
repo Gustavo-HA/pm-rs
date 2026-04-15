@@ -3,6 +3,7 @@ from .cf_classic import CFClassic
 from .cf_multicriteria import CFMultiCriteria
 from .cb_quality import CBQuality
 from .cb_attention import CBAttention
+from .hybrid_linear_fusion import HybridFusion
 
 __all__ = [
     "BaseRecommender",
@@ -10,4 +11,5 @@ __all__ = [
     "CFMultiCriteria",
     "CBQuality",
     "CBAttention",
+    "HybridFusion",
 ]

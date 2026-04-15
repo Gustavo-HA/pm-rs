@@ -35,7 +35,7 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from mtrs.models import CBAttention, CBQuality, CFClassic, CFMultiCriteria
+from mtrs.models import CBAttention, CBQuality, CFClassic, CFMultiCriteria, HybridFusion
 
 logging.basicConfig(
     level=logging.INFO,
@@ -227,6 +227,8 @@ def _log_model_artifacts(name: str, model: object) -> None:
             np.savez(artifact_path, sim_matrix=model._sim_matrix, mu=model._mu)
         elif name == "CBQuality":
             np.savez(artifact_path, scores=model._scores.values)
+        elif name == "HybridFusion":
+            np.savez(artifact_path, weights=model.weights)
         mlflow.log_artifact(str(artifact_path))
 
 
@@ -366,6 +368,61 @@ def main() -> None:
 
             # ── Artifacts: pesos del modelo ──────────────────────────── #
             _log_model_artifacts(name, model)
+
+    # ── HybridFusion — requiere modelos base ya entrenados ──────────────── #
+    hybrid = HybridFusion(models)
+    with mlflow.start_run(run_name=f"{args.prefix}_HybridFusion"):
+        mlflow.log_input(train_dataset, context="training")
+        mlflow.log_input(test_dataset, context="testing")
+        mlflow.log_params(dataset_params)
+        mlflow.log_params(
+            {
+                "base_models": ",".join(models.keys()),
+                "initial_weights": ",".join(f"{w:.4f}" for w in hybrid.weights),
+            }
+        )
+
+        logger.info("Entrenando HybridFusion…")
+        t0 = time.perf_counter()
+        hybrid.fit(A)
+        fit_time = time.perf_counter() - t0
+        logger.info(f"  HybridFusion fit: {fit_time:.1f}s")
+        mlflow.log_metric("fit_time_sec", fit_time)
+
+        for k in args.k:
+            t0 = time.perf_counter()
+            metrics = evaluate_model(hybrid, ground_truth, k=k, Y=Y)
+            eval_time = time.perf_counter() - t0
+
+            logger.info(
+                f"  {'HybridFusion':<20} "
+                f"Hit@{k}={metrics['hit']:.4f}  "
+                f"P@{k}={metrics['precision']:.4f}  "
+                f"R@{k}={metrics['recall']:.4f}  "
+                f"NDCG@{k}={metrics['ndcg']:.4f}  "
+                f"MRR={metrics['mrr']:.4f}  "
+                f"ILD={metrics['ild']:.4f}  "
+                f"Cov={metrics['coverage']:.4f}  "
+                f"({eval_time:.1f}s)"
+            )
+
+            mlflow.log_metrics(
+                {
+                    "hit": metrics["hit"],
+                    "precision": metrics["precision"],
+                    "recall": metrics["recall"],
+                    "ndcg": metrics["ndcg"],
+                    "mrr": metrics["mrr"],
+                    "ild": metrics["ild"],
+                    "coverage": metrics["coverage"],
+                    "eval_time_sec": eval_time,
+                },
+                step=k,
+            )
+
+            all_results.append({"model": "HybridFusion", "K": k, **metrics})
+
+        _log_model_artifacts("HybridFusion", hybrid)
 
     # ── Tabla resumen ────────────────────────────────────────────────────── #
     results_df = pd.DataFrame(all_results)
