@@ -1,0 +1,625 @@
+\documentclass[11pt, a4paper]{article}
+
+% ── Paquetes ──────────────────────────────────────────────────────────────── %
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    citecolor=blue!60!black,
+    urlcolor=blue!60!black,
+}
+
+\graphicspath{{avance_figuras/}}
+
+\title{Avance de Tesis:\\Evaluación de Modelos del Sistema de Recomendación}
+\author{Gustavo Hernández Alvarado}
+\date{Marzo 2026}
+
+\begin{document}
+\maketitle
+\newpage
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Introducción}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+Este documento describe los avances correspondientes a la \textbf{implementación y evaluación de los cuatro modelos base} del sistema de recomendación híbrido para Pueblos Mágicos de México. El pipeline parte de los resultados del análisis de aspectos y sentimientos (ABSA) sobre 297,000 fragmentos de reseñas, construye las matrices del sistema, entrena cada modelo y evalúa su desempeño con métricas estándar de \textit{ranking}.
+
+El objetivo final del proyecto es fusionar las predicciones de estos cuatro modelos mediante optimización metaheurística (PSO/DE/Bayesian), pero este avance cubre la \textbf{línea base individual} de cada componente.
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Sistemas de Recomendación: Conceptos Fundamentales}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+Un \textbf{sistema de recomendación} (RecSys) tiene como objetivo predecir la preferencia de un usuario $u$ por un ítem $p$ que aún no ha consumido, y generar una lista ordenada de los $K$ ítems con mayor puntaje estimado. En este proyecto, los usuarios son viajeros y los ítems son los 48 Pueblos Mágicos del dataset REST-MEX.
+
+Existen dos paradigmas principales:
+
+\subsection{Filtrado Colaborativo (Collaborative Filtering)}
+
+El filtrado colaborativo asume que \textbf{usuarios con comportamientos similares en el pasado tendrán preferencias similares en el futuro}. No requiere conocimiento explícito sobre las características de los ítems; opera exclusivamente sobre la matriz de interacciones usuario-ítem.
+
+Se distinguen dos subfamilias:
+
+\begin{itemize}
+    \item \textbf{Basado en modelos (\textit{model-based}):} Aprende una representación latente de usuarios e ítems. El ejemplo clásico es la factorización matricial (SVD), donde $A \approx P Q^\top$ y cada usuario/ítem se describe por un vector en $\mathbb{R}^k$. El score de recomendación se calcula como un producto punto entre la representación del usuario $\vec{p}$ y la representación del ítem $\vec{q}$.
+    \item \textbf{Basado en vecinos (\textit{neighborhood-based}):} Identifica los $k$ usuarios (o ítems) más similares y pondera sus calificaciones para generar la predicción. La similitud puede calcularse con coseno, correlación de Pearson o distancia euclidiana.
+\end{itemize}
+
+\subsection{Filtrado Basado en Contenido (Content-Based Filtering)}
+
+El filtrado basado en contenido utiliza \textbf{atributos descriptivos de los ítems y/o del perfil del usuario} para generar recomendaciones. La idea central es: si un usuario valora ciertos aspectos (e.g., \textit{comida}, \textit{ambiente}), se le recomendarán ítems (pueblos) que destaquen en esos aspectos.
+
+Este paradigma no sufre del problema de \textit{cold-start} a nivel de ítem (puede recomendar ítems sin interacciones previas), pero depende de la calidad de las \textit{features} extraídas.
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Matrices del Sistema}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+El pipeline ABSA produce fragmentos de reseñas clasificados por aspecto y sentimiento. A partir de estos datos se construyen cuatro matrices que alimentan a los modelos. La construcción se implementa en \texttt{mtrs/aggregation/matrices.py}.
+
+% ── A ─────────────────────────────────────────────────────────────────────── %
+\subsection{Matriz de Ratings $A$}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Dimensión       & $m \times n$ (usuarios $\times$ pueblos) \\
+Rango de valores & $[1, 5]$ \\
+Fuente          & Calificación original de la reseña \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{equation}
+    A_{u,p} = \frac{1}{|R_{u,p}|} \sum_{r \in R_{u,p}} \text{Calificacion}(r)
+\end{equation}
+
+Promedio de calificaciones que el usuario $u$ asignó a reseñas sobre el pueblo $p$. Las reseñas se deduplican por \texttt{review\_idx} para evitar contar múltiples fragmentos de la misma reseña. Las celdas vacías (usuario no visitó pueblo) quedan como \texttt{NaN}.
+
+\textbf{Ejemplo:} Si el usuario \textit{María} escribió 3 reseñas sobre \textit{Taxco} con calificaciones 4, 5 y 4, entonces $A_{\text{María, Taxco}} = 4.33$.
+
+% ── X ─────────────────────────────────────────────────────────────────────── %
+\subsection{Matriz de Importancia Usuario-Aspecto $X$}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Dimensión       & $m \times p$ (usuarios $\times$ 8 aspectos) \\
+Rango de valores & $[1, 5]$ \\
+Fuente          & Frecuencia de mención por aspecto (ABSA) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Primero se calcula $t_{u,j}$: número de fragmentos del usuario $u$ clasificados en el aspecto $j$ (sobre todos los pueblos). Luego se aplica una sigmoide desplazada:
+
+\begin{equation}
+    X_{u,j} = 1 + (N-1) \cdot \left( \frac{2}{1 + e^{-t_{u,j} / T}} - 1 \right)
+\end{equation}
+
+donde $N = 5$ (escala de calificación) y $T$ es un parámetro de temperatura (default $T=3$).
+
+\begin{itemize}
+    \item $t = 0 \Rightarrow X = 1$ (aspecto nunca mencionado, importancia mínima)
+    \item $t \to \infty \Rightarrow X \to 5$ (aspecto frecuentemente mencionado, importancia máxima)
+\end{itemize}
+
+\textbf{Intuición:} Un usuario que menciona repetidamente \textit{comida} en sus reseñas revela que ese aspecto es importante para él. La sigmoide evita que usuarios prolíficos dominen la escala.
+
+\textbf{Ejemplo:} Si \textit{Carlos} mencionó \textit{servicio} en 12 fragmentos y \textit{precio} en 2, entonces $X_{\text{Carlos, servicio}} \approx 4.7$ y $X_{\text{Carlos, precio}} \approx 2.5$.
+
+% ── Y ─────────────────────────────────────────────────────────────────────── %
+\subsection{Matriz de Calidad Pueblo-Aspecto $Y$}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Dimensión       & $n \times p$ (pueblos $\times$ 8 aspectos) \\
+Rango de valores & $[1, 5]$ \\
+Fuente          & Sentimiento promedio ponderado por volumen (ABSA) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Se calcula el sentimiento promedio $h_{p,j} \in [-2, 2]$ y el volumen logarítmico $\phi_{p,j} = \ln(1 + |S_{p,j}|)$:
+
+\begin{equation}
+    Y_{p,j} = 1 + \frac{N-1}{1 + e^{-h_{p,j} \cdot \phi_{p,j} / T}}
+    \label{eq:Y}
+\end{equation}
+
+donde $T$ es la temperatura (default $T=100$). El producto $h \cdot \phi$ actúa como señal ponderada por volumen:
+
+\begin{itemize}
+    \item Muchas menciones positivas $\Rightarrow Y \to 5$ (alta calidad)
+    \item Pocas menciones o neutras $\Rightarrow Y \approx 3$ (calidad media)
+    \item Menciones negativas $\Rightarrow Y \to 1$ (baja calidad)
+\end{itemize}
+
+\textbf{Ejemplo:} Si \textit{Taxco} tiene 200 fragmentos sobre \textit{cultura} con sentimiento promedio de $+1.5$, entonces $\phi \approx \ln(201) \approx 5.3$ y $Y_{\text{Taxco, cultura}} \approx 4.8$.
+
+\textbf{Nota:} Las matrices $X$ y $Y$ fueron propuestas por Zhang et al.\ (2014)\footnote{Y.\ Zhang, G.\ Lai, M.\ Zhang, Y.\ Zhang, Y.\ Liu, S.\ Ma. ``Explicit Factor Models for Explainable Recommendation based on Phrase-level Sentiment Analysis''. \textit{SIGIR}, 2014.}. En este trabajo se añade el parámetro de temperatura $T$ para suavizar la curva de atención y calidad, respectivamente. Esta decisión se basó en que la frecuencia de repetición (tanto usuario-aspecto como pueblo-aspecto) es particularmente alta en este dataset. Como se verá en los resultados, esto mejoró el desempeño del modelo.
+
+% ── R ─────────────────────────────────────────────────────────────────────── %
+\subsection{Tensor de Sentimiento $R$}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Dimensión       & $(m \times n) \times p$ (MultiIndex usuario-pueblo $\times$ 8 aspectos) \\
+Rango de valores & $[-2, 2]$ \\
+Fuente          & Sentimiento promedio por aspecto (ABSA) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{equation}
+    R_{u,p,j} = \text{mean}_{s \in S_{u,p,j}} \; \text{sent\_score}(s)
+\end{equation}
+
+donde $\text{sent\_score}(s)$ mapea las 5 clases de sentimiento a $\{-2, -1, 0, 1, 2\}$ (Muy Negativo $\to$ Muy Positivo).
+
+Esta es la representación multi-criterio: cada celda $(u, p)$ no tiene un solo rating sino un \textbf{vector de 8 dimensiones} que captura cómo se siente el usuario sobre cada aspecto del pueblo.
+
+\textbf{Ejemplo:} $R_{\text{María, Taxco, comida}} = 1.5$ indica que María expresó sentimiento predominantemente positivo sobre la comida en Taxco.
+
+% ── Mapeo ──────────────────────────────────────────────────────────────────── %
+\subsection{Mapeo Sentimiento $\to$ Puntuación}
+
+\begin{table}[H]\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Etiqueta} & \textbf{ID} & \textbf{Puntuación} \\
+\midrule
+Muy Negativo & 0 & $-2$ \\
+Negativo     & 1 & $-1$ \\
+Neutral      & 2 & $0$ \\
+Positivo     & 3 & $+1$ \\
+Muy Positivo & 4 & $+2$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Los 8 aspectos del sistema son: \textit{ambiente, comida, cultura, habitación, naturaleza, precio, servicio, ubicación}, distribuidos por tipo de lugar (Restaurant, Hotel, Attractive).
+
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Modelos Implementados}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+% ── CFClassic ──────────────────────────────────────────────────────────────── %
+\subsection{CFClassic --- Filtrado Colaborativo con Factorización Matricial}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Tipo      & Filtrado colaborativo basado en modelo \\
+Entrada   & Matriz $A$ (ratings) \\
+Referencia & Koren et al.\ (2009) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Descompone la matriz de ratings en factores latentes mediante SVD con sesgos:
+
+\begin{equation}
+    \hat{r}_{u,p} = \mu + b_u + b_p + \mathbf{p}_u \cdot \mathbf{q}_p
+\end{equation}
+
+donde $\mu$ es la media global de ratings, $b_u$ y $b_p$ son los sesgos de usuario y pueblo, y $\mathbf{p}_u, \mathbf{q}_p \in \mathbb{R}^k$ son vectores latentes ($k$ = número de factores).
+
+El entrenamiento minimiza el error cuadrático regularizado vía \textit{Stochastic Gradient Descent}:
+
+\begin{equation}
+    \mathcal{L} = \sum_{(u,p) \in \mathcal{K}} \left(r_{u,p} - \hat{r}_{u,p}\right)^2 + \lambda \left(b_u^2 + b_p^2 + \|\mathbf{p}_u\|^2 + \|\mathbf{q}_p\|^2\right)
+\end{equation}
+
+Opera exclusivamente sobre $A$. No utiliza información de aspectos ni sentimientos. Es el \textit{baseline} puramente colaborativo.
+
+% ── CFMultiCriteria ────────────────────────────────────────────────────────── %
+\subsection{CFMultiCriteria --- Filtrado Colaborativo Multi-Criterio}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Tipo      & Filtrado colaborativo basado en vecinos (user-user) \\
+Entrada   & Matrices $R$ (sentimiento multi-aspecto) y $A$ (ratings) \\
+Referencia & Musto et al.\ (2017) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Extiende el CF clásico al incorporar \textbf{múltiples dimensiones de sentimiento} para calcular la similitud entre usuarios. La distancia entre usuarios sobre los pueblos que ambos visitaron es:
+
+\begin{equation}
+    \text{dist}(u_i, u_k) = \frac{1}{|I(u_i, u_k)|} \sum_{p \in I} \sqrt{\sum_j \left|R_j(u_i, p) - R_j(u_k, p)\right|^2}
+\end{equation}
+
+La similitud se deriva como:
+
+\begin{equation}
+    \text{sim}(u_i, u_k) = \frac{1}{1 + \text{dist}(u_i, u_k)}
+\end{equation}
+
+La predicción se calcula por promedio ponderado de los $k$ vecinos más similares:
+
+\begin{equation}
+    \hat{r}(u, p) = \frac{\sum_{v \in N_k(u)} \text{sim}(u, v) \cdot A_{v,p}}{\sum_{v \in N_k(u)} |\text{sim}(u, v)|}
+\end{equation}
+
+Usa $R$ para calcular similitudes multi-dimensionales y $A$ para las calificaciones finales. La hipótesis es que dos usuarios que sienten de forma similar sobre los mismos aspectos en los mismos pueblos tendrán gustos más afines que si solo se compararan sus ratings escalares. Este método está basado en Musto et al.\ (2017)\footnote{C.\ Musto, M.\ de Gemmis, G.\ Semeraro, P.\ Lops. ``A Multi-criteria Recommender System Exploiting Aspect-based Sentiment Analysis of Users' Reviews''. \textit{RecSys}, 2017.}.
+
+% ── CBAttention ────────────────────────────────────────────────────────────── %
+\subsection{CFAttention --- Similitud por Atención de Aspectos}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Tipo      & CF user-user con features de contenido \\
+Entrada   & Matrices $X$ (importancia usuario-aspecto) y $A$ (ratings) \\
+Referencia & Inspirado en Zhang et al.\ (2014) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Calcula similitud entre usuarios basándose en sus \textbf{perfiles de atención a aspectos} (qué les importa), no en qué calificaron. La similitud se define por coseno sobre vectores de atención:
+
+\begin{equation}
+    \text{sim}_{att}(u, v) = \cos(\mathbf{X}_u, \mathbf{X}_v) = \frac{\mathbf{X}_u \cdot \mathbf{X}_v}{\|\mathbf{X}_u\| \cdot \|\mathbf{X}_v\|}
+\end{equation}
+
+La predicción se calcula con corrección de media:
+
+\begin{equation}
+    \hat{r}_{u,p}^{att} = \mu_u + \frac{\sum_{v \in N_k} \text{sim}(u,v) \cdot (A_{v,p} - \mu_v)}{\sum_{v \in N_k} |\text{sim}(u,v)|}
+\end{equation}
+
+Usa $X$ para determinar \textit{quiénes son usuarios similares} (por sus intereses en aspectos) y $A$ para \textit{qué predecir} (ratings). La idea es que usuarios que se preocupan por los mismos aspectos (e.g., ambos priorizan \textit{comida} y \textit{precio}) compartirán preferencias por los mismos pueblos.
+
+% ── CBQuality ──────────────────────────────────────────────────────────────── %
+\subsection{CBQuality --- Matching por Calidad de Aspectos}
+
+\begin{table}[H]\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} \\
+\midrule
+Tipo      & Filtrado basado en contenido puro \\
+Entrada   & Matrices $X$ (importancia), $Y$ (calidad) y $A$ (excluir visitados) \\
+Referencia & Zhang et al.\ (2014), Explicit Factor Model \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Es el modelo más puramente basado en contenido: la predicción es un promedio ponderado de la calidad del pueblo en cada aspecto, donde los pesos son la importancia que el usuario asigna a cada aspecto.
+
+\begin{equation}
+    \hat{r}_{u,p}^{qual} = \frac{\sum_j X_{u,j} \cdot Y_{p,j}}{\sum_j X_{u,j}}
+\end{equation}
+
+Combina directamente $X$ (perfil del usuario) con $Y$ (perfil del pueblo). No requiere datos de interacción entre el usuario y el pueblo objetivo, resolviendo el problema de \textit{cold-start} a nivel de ítem.
+
+\textbf{Ejemplo:} Si \textit{Carlos} prioriza \textit{comida} ($X = 4.7$) y \textit{precio} ($X = 2.5$), y \textit{Taxco} destaca en \textit{comida} ($Y = 4.5$) pero no en \textit{precio} ($Y = 2.0$), la predicción ponderará más la comida:
+$\hat{r} \approx (4.7 \times 4.5 + 2.5 \times 2.0 + \ldots) / (4.7 + 2.5 + \ldots)$.
+
+% ── Resumen ────────────────────────────────────────────────────────────────── %
+\subsection{Resumen de Conexiones Modelo-Matrices}
+
+\begin{table}[H]\centering
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Modelo} & $A$ & $X$ & $Y$ & $R$ & \textbf{Paradigma} \\
+\midrule
+CFClassic       & \textbf{fit}     & ---              & ---              & ---             & Colaborativo (modelo) \\
+CFMultiCriteria & \textbf{predict} & ---              & ---              & \textbf{sim}    & Colaborativo (vecinos) \\
+CFAttention     & \textbf{predict} & \textbf{sim}     & ---              & ---             & Híbrido (vecinos + contenido) \\
+CBQuality       & \textit{excl.}   & \textbf{predict} & \textbf{predict} & ---             & Basado en contenido \\
+\bottomrule
+\end{tabular}
+\caption{Uso de cada matriz por modelo. \textbf{fit} = entrenamiento, \textbf{sim} = cálculo de similitudes, \textbf{predict} = predicción directa, \textit{excl.} = solo para excluir pueblos visitados.}
+\label{tab:modelo-matrices}
+\end{table}
+
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Protocolo de Evaluación}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+\subsection{Estrategia de Split Temporal}
+
+Se utiliza un esquema \textbf{\textit{leave-last-month-out}}: para cada usuario, las reseñas de su último mes activo conforman el conjunto de test, y el resto forma el entrenamiento. Esto simula un escenario realista donde el sistema predice los próximos destinos del usuario.
+
+Los modelos se entrenan sobre las matrices construidas con datos de entrenamiento. La evaluación se realiza sobre usuarios presentes en ambos conjuntos. La distribución del porcentaje de datos (agregado por usuario) en el split de prueba tiene una media del 25\%, abarcando desde 10\% hasta 50\%.
+
+\subsection{Proceso de Evaluación}
+
+Para cada usuario de test y cada valor de $K$:
+
+\begin{enumerate}
+    \item El modelo genera una lista ordenada de $K$ pueblos recomendados (excluyendo los visitados en entrenamiento).
+    \item Se compara la lista contra el \textit{ground truth} (pueblos visitados en el periodo de test).
+    \item Se calculan las métricas por usuario y se promedian (\textit{macro-average}).
+\end{enumerate}
+
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Métricas de Evaluación}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+Las métricas implementadas cubren tres dimensiones: \textbf{relevancia} (la recomendación es correcta), \textbf{ranking} (los ítems relevantes aparecen primero) y \textbf{más allá de la precisión} (diversidad y cobertura)\footnote{Para una referencia visual interactiva sobre estas métricas, ver: \url{https://www.evidentlyai.com/ranking-metrics/evaluating-recommender-systems}}.
+
+% ── Hit ────────────────────────────────────────────────────────────────────── %
+\subsection{Hit Rate@K}
+
+\begin{equation}
+    \text{Hit@K} = \frac{1}{|U|} \sum_{u \in U} \mathbb{1}\left[\exists \; p \in \text{TopK}(u) : p \in \text{Rel}(u)\right]
+\end{equation}
+
+Indica la \textbf{proporción de usuarios que reciben al menos una recomendación relevante} en su top-$K$. Es una métrica binaria por usuario: $1$ si hay al menos un acierto, $0$ en caso contrario.
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$
+    \item \textbf{Interpretación:} Un $\text{Hit@10} = 0.60$ significa que el 60\% de los usuarios encontraron al menos un pueblo relevante en sus 10 recomendaciones.
+    \item \textbf{Utilidad:} Métrica de \textit{satisfacción mínima} --- el umbral más básico para que un sistema sea útil.
+\end{itemize}
+
+% ── Precision ──────────────────────────────────────────────────────────────── %
+\subsection{Precision@K}
+
+\begin{equation}
+    \text{Precision@K} = \frac{|\text{TopK}(u) \cap \text{Rel}(u)|}{K}
+\end{equation}
+
+Mide la \textbf{fracción de ítems relevantes dentro de la lista de $K$ recomendaciones}.
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$
+    \item \textbf{Interpretación:} $\text{Precision@10} = 0.20$ significa que 2 de cada 10 recomendaciones son relevantes.
+    \item \textbf{Limitación:} Si un usuario solo tiene 1 pueblo relevante en test, el máximo posible de $\text{Precision@10}$ es $0.10$.
+\end{itemize}
+
+Un detalle importante es que esta métrica depende del número de ítems relevantes por usuario. Si un usuario tiene solo 3 ítems relevantes, entonces $\text{Precision}_{\max}\text{@5} = 0.6$ y $\text{Precision}_{\max}\text{@10} = 0.3$, por lo que al aumentar $K$ la métrica tiende a disminuir.
+
+% ── Recall ─────────────────────────────────────────────────────────────────── %
+\subsection{Recall@K}
+
+\begin{equation}
+    \text{Recall@K} = \frac{|\text{TopK}(u) \cap \text{Rel}(u)|}{|\text{Rel}(u)|}
+\end{equation}
+
+Mide la \textbf{fracción de ítems relevantes capturados} por la lista de recomendaciones.
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$
+    \item \textbf{Interpretación:} $\text{Recall@10} = 0.40$ significa que el sistema capturó el 40\% de los pueblos que el usuario visitó en el periodo de test.
+    \item \textbf{Relación con K:} Recall tiende a crecer con $K$ (más oportunidades de capturar ítems relevantes).
+\end{itemize}
+
+% ── NDCG ───────────────────────────────────────────────────────────────────── %
+\subsection{NDCG@K}
+
+El \textit{Normalized Discounted Cumulative Gain} evalúa la \textbf{calidad del ranking}, penalizando cuando los ítems relevantes aparecen en posiciones bajas.
+
+\begin{equation}
+    \text{DCG@K} = \sum_{i=1}^{K} \frac{\text{rel}(i)}{\log_2(i + 1)}, \qquad
+    \text{NDCG@K} = \frac{\text{DCG@K}}{\text{IDCG@K}}
+\end{equation}
+
+donde $\text{IDCG@K}$ es el DCG del ranking ideal (todos los relevantes primero). En nuestra implementación se usa relevancia binaria: $\text{rel}(i) = 1$ si el ítem en posición $i$ es relevante.
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$, donde $1.0$ es un ranking perfecto.
+    \item \textbf{Interpretación:} Un ítem relevante en posición 1 contribuye $1/\log_2(2) = 1.0$, pero en posición 5 solo contribuye $1/\log_2(6) \approx 0.39$.
+\end{itemize}
+
+% ── MRR ────────────────────────────────────────────────────────────────────── %
+\subsection{MRR (Mean Reciprocal Rank)}
+
+\begin{equation}
+    \text{MRR} = \frac{1}{|U|} \sum_{u \in U} \frac{1}{\text{rank}_u}
+\end{equation}
+
+donde $\text{rank}_u$ es la posición del primer ítem relevante en la lista del usuario $u$ (0 si no hay acierto).
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$
+    \item \textbf{Interpretación:} $\text{MRR} = 0.50$ significa que, en promedio, el primer pueblo relevante aparece en la posición 2.
+    \item \textbf{Limitación:} Solo considera el \textbf{primer} acierto, ignorando la calidad del resto de la lista.
+\end{itemize}
+
+% ── Coverage ───────────────────────────────────────────────────────────────── %
+\subsection{Coverage}
+
+\begin{equation}
+    \text{Coverage} = \frac{\left|\bigcup_{u \in U} \text{TopK}(u)\right|}{|\mathcal{P}|}
+\end{equation}
+
+donde $\mathcal{P}$ es el catálogo completo de pueblos.
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$
+    \item \textbf{Interpretación:} $\text{Coverage} = 0.75$ indica que el 75\% de los 48 pueblos aparecen en al menos una lista de recomendaciones. Un valor bajo indica \textbf{sesgo de popularidad}.
+    \item \textbf{Trade-off:} Alta cobertura no implica buena relevancia. Un modelo que recomienda pueblos aleatorios tendría cobertura perfecta pero precisión nula.
+\end{itemize}
+
+% ── ILD ────────────────────────────────────────────────────────────────────── %
+\subsection{Intra-List Diversity (ILD)}
+
+\begin{equation}
+    \text{ILD} = \frac{1}{|U|} \sum_{u \in U} \frac{2}{K(K-1)} \sum_{i < j} \left(1 - \cos(\mathbf{Y}_i, \mathbf{Y}_j)\right)
+\end{equation}
+
+Mide la \textbf{distancia coseno promedio} entre pares de pueblos recomendados, usando sus perfiles de calidad $Y$ como representación vectorial.
+
+\begin{itemize}
+    \item \textbf{Rango:} $[0, 1]$
+    \item \textbf{Interpretación:} Un valor alto indica que los pueblos recomendados son diversos en sus perfiles de aspectos. Un valor bajo indica que se recomiendan pueblos muy similares.
+    \item \textbf{Trade-off:} Alta diversidad sin relevancia genera listas incoherentes. Debe balancearse con las métricas de ranking.
+\end{itemize}
+
+% ── Resumen métricas ──────────────────────────────────────────────────────── %
+\subsection{Resumen de Métricas}
+
+\begin{table}[H]\centering
+\begin{tabular}{llcc}
+\toprule
+\textbf{Métrica} & \textbf{Dimensión} & \textbf{Rango} & $\uparrow$ \textbf{Mejor?} \\
+\midrule
+Hit@K       & Relevancia  & $[0,1]$ & Sí \\
+Precision@K & Relevancia  & $[0,1]$ & Sí \\
+Recall@K    & Relevancia  & $[0,1]$ & Sí \\
+NDCG@K      & Ranking     & $[0,1]$ & Sí \\
+MRR         & Ranking     & $[0,1]$ & Sí \\
+Coverage    & Catálogo    & $[0,1]$ & Contexto \\
+ILD         & Diversidad  & $[0,1]$ & Contexto \\
+\bottomrule
+\end{tabular}
+\caption{Resumen de métricas de evaluación. Las métricas de relevancia y ranking se promedian por usuario (\textit{macro-average}), Coverage es global e ILD se promedia por usuario pero no depende del \textit{ground truth}.}
+\label{tab:metricas}
+\end{table}
+
+
+% ═══════════════════════════════════════════════════════════════════════════ %
+\section{Resultados de Modelos Individuales}
+\label{sec:resultados}
+% ═══════════════════════════════════════════════════════════════════════════ %
+
+Se evaluaron los cuatro modelos en dos configuraciones de las matrices $X$ y $Y$: (i) la versión original sin parámetro de temperatura (\texttt{CBQuality}) y (ii) la versión con temperatura (\texttt{punkt...}). Los valores de $K$ evaluados fueron $\{1, 3, 5, 10, 20\}$. Las gráficas corresponden a capturas de los experimentos registrados en MLflow.
+
+\subsection{Métricas de Relevancia}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{hit.png}
+        \caption{Hit Rate@K}
+        \label{fig:hit}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{precision.png}
+        \caption{Precision@K}
+        \label{fig:precision}
+    \end{subfigure}
+
+    \vspace{0.5cm}
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{recall.png}
+        \caption{Recall@K}
+        \label{fig:recall}
+    \end{subfigure}
+    \caption{Métricas de relevancia en función de $K$. CBQuality (con y sin temperatura) domina consistentemente a los modelos colaborativos.}
+    \label{fig:relevancia}
+\end{figure}
+
+\textbf{Hit@K} (Figura~\ref{fig:hit}): Las variantes de CBQuality lideran con amplio margen. A $K=20$, CBQuality alcanza $\sim 0.78$, mientras que los tres modelos colaborativos (CFClassic, CFMultiCriteria, CBAttention) se agrupan en $\sim 0.55\text{--}0.60$. La versión con temperatura supera ligeramente a la versión sin temperatura en todos los valores de $K$.
+
+\textbf{Precision@K} (Figura~\ref{fig:precision}): CBQuality con temperatura alcanza $\sim 0.16$ a $K=1$, el valor más alto. Todos los modelos convergen conforme $K$ crece (efecto esperado: el techo de la métrica decrece con $K$ al haber pocos ítems relevantes por usuario). Los modelos colaborativos permanecen por debajo de $0.05$ en todos los cortes.
+
+\textbf{Recall@K} (Figura~\ref{fig:recall}): Patrón consistente con Hit@K. A $K=20$, las variantes CBQuality capturan $\sim 72\text{--}75\%$ de los pueblos relevantes frente a $\sim 55\%$ de los modelos colaborativos. La versión con temperatura mantiene una ventaja marginal pero consistente.
+
+\subsection{Métricas de Ranking}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{ndcg.png}
+        \caption{NDCG@K}
+        \label{fig:ndcg}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{mrr.png}
+        \caption{MRR}
+        \label{fig:mrr}
+    \end{subfigure}
+    \caption{Métricas de ranking. La separación entre CBQuality y los modelos colaborativos es incluso más pronunciada que en las métricas de relevancia.}
+    \label{fig:ranking}
+\end{figure}
+
+\textbf{NDCG@K} (Figura~\ref{fig:ndcg}): Es la métrica donde la versión con temperatura muestra la mayor ganancia: $\sim 0.39$ vs.\ $\sim 0.37$ de CBQuality sin temperatura a $K=20$. Los modelos colaborativos alcanzan $\sim 0.20$, menos de la mitad. Esto indica que CBQuality  posiciona los pueblos relevantes más arriba en la lista.
+
+\textbf{MRR} (Figura~\ref{fig:mrr}): CBQuality con temperatura alcanza $\sim 0.30$ a $K=20$, lo que implica que en promedio el primer pueblo relevante aparece entre las posiciones 3 y 4. Sin temperatura: $\sim 0.27$. Los modelos colaborativos se ubican en $\sim 0.10$ (primer acierto en posición $\sim 10$).
+
+\subsection{Métricas de Diversidad y Cobertura}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{coverage.png}
+        \caption{Coverage}
+        \label{fig:coverage}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{image.png}
+        \caption{Intra-List Diversity (ILD)}
+        \label{fig:ild}
+    \end{subfigure}
+    \caption{Métricas \textit{beyond accuracy}. Los modelos colaborativos dominan en diversidad y cobertura, revelando el trade-off clásico con la relevancia.}
+    \label{fig:beyond}
+\end{figure}
+
+\textbf{Coverage} (Figura~\ref{fig:coverage}): Los modelos colaborativos (CFClassic, CFMultiCriteria, CBAttention) alcanzan cobertura $\sim 1.0$ rápidamente, recomendando prácticamente todo el catálogo de 48 pueblos. En contraste, las variantes de CBQuality comienzan en $\sim 0.25$ a $K=2$ y crecen hasta $\sim 0.95$ a $K=20$. Esto revela un \textbf{sesgo de popularidad} en CBQuality: al ponderar por calidad agregada, tiende a concentrar las recomendaciones en los pueblos con mejores perfiles de aspecto.
+
+\textbf{ILD} (Figura~\ref{fig:ild}): Los modelos colaborativos presentan ILD $\sim 0.006$, mientras que CBQuality tiene ILD cercano a cero ($< 0.001$). Esto puede ser debido a cómo de definen las representaciones de calidad $Y$: la similaridad se calcula con el coseno entre perfiles de calidad, y como en la construccion de los perfiles se utiliza la funcion logistica (Eq. \ref{eq:Y}) cuyos valores van de 1 a 5, esta medida de coseno puede no ser lo suficientemente sensible para distinguir entre pueblos con perfiles de calidad similares. Es decir, todos los pueblos se encuentran en la misma región ortante del espacio vectorial.
+
+% \subsection{Análisis del Trade-off Relevancia vs.\ Diversidad}
+
+% Los resultados revelan un \textbf{trade-off clásico} en sistemas de recomendación:
+
+% \begin{itemize}
+%     \item \textbf{CBQuality} maximiza la relevancia (Hit, Precision, Recall, NDCG, MRR) pero a costa de baja diversidad y cobertura reducida. Esto se debe a que el producto $X \cdot Y$ favorece sistemáticamente pueblos con altos puntajes de calidad en los aspectos más comunes, generando una ``burbuja de filtro''.
+%     \item \textbf{CFClassic, CFMultiCriteria y CBAttention} ofrecen mayor diversidad y cobertura total del catálogo, pero su capacidad predictiva es significativamente menor. En el caso de CFClassic, esto se atribuye a la alta esparsidad de $A$ (90.32\%), que limita la calidad de los factores latentes aprendidos.
+% \end{itemize}
+
+% \subsection{Efecto del Parámetro de Temperatura}
+
+% La versión de CBQuality con temperatura (\texttt{punkt\_bert\_tempdefault}) supera consistentemente a la versión sin temperatura en \textbf{todas} las métricas de relevancia y ranking, con la mayor ganancia en NDCG@K ($+0.03$ absoluto a $K=20$). La temperatura suaviza las funciones sigmoide en la construcción de $X$ y $Y$, evitando la saturación prematura en usuarios o pueblos con alta frecuencia de menciones. Esto produce distribuciones de scores con mayor rango dinámico, lo que mejora la capacidad de discriminación del modelo al ordenar pueblos.
+
+\subsection{Implicaciones para la Fusión Híbrida}
+
+Estos resultados justifican la estrategia de fusión lineal:
+
+\begin{equation}
+    \hat{r}_{\text{final}}(u,p) = \alpha \cdot \hat{r}_{CF} + \beta \cdot \hat{r}_{MC} + \gamma \cdot \hat{r}_{att} + \delta \cdot \hat{r}_{qual}
+\end{equation}
+
+La complementariedad entre los modelos es evidente: CBQuality aporta la señal de relevancia más fuerte, mientras que los modelos colaborativos aportan diversidad y exploración del catálogo. La optimización metaheurística de los pesos $(\alpha, \beta, \gamma, \delta)$ buscará el balance óptimo entre estas dimensiones, maximizando NDCG@K en un conjunto de validación.
+
+\end{document}
