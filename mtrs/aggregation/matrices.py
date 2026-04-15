@@ -88,7 +88,9 @@ def compute_user_pueblo_aspect_sentiment(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame:
+def compute_user_aspect_importance(
+    df: pd.DataFrame, T: float | None = None
+) -> pd.DataFrame:
     """Calcula la importancia que cada usuario asigna a cada aspecto.
 
     t_{u,j} = número de chunks del usuario u clasificados en aspecto j
@@ -100,11 +102,15 @@ def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame
       - t=0   => X=1   (aspecto nunca mencionado)
       - t->inf => X->N (aspecto muy frecuente)
 
+    La temperatura T ancla el punto de inflexión (X = (N+1)/2 = 3) a la
+    mediana de los conteos no nulos: un usuario con el número típico de
+    menciones obtiene importancia media.
+
     Args:
         df: DataFrame con columnas ['Author', 'aspect'].
             Cada fila representa un chunk clasificado en un aspecto por un usuario.
         T: Temperatura para ajustar la sensibilidad de la función sigmoide.
-           Valores más bajos hacen que X crezca más rápido
+           Si es None (default), se deriva como median(t_{u,j} | t_{u,j} > 0).
 
     Returns:
         pd.DataFrame: Shape (n_users, len(ALL_ASPECTS)), valores en [1, 5].
@@ -115,6 +121,9 @@ def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame
         .unstack(fill_value=0)
         .reindex(columns=ALL_ASPECTS, fill_value=0)
     )
+    if T is None:
+        nonzero = t.values[t.values > 0]
+        T = float(np.median(nonzero)) if len(nonzero) > 0 else 1.0
     sigmoid_shifted = 2.0 / (1.0 + np.exp(-t.values / T)) - 1.0
     X = pd.DataFrame(
         1.0 + (N - 1) * sigmoid_shifted,
@@ -129,7 +138,9 @@ def compute_user_aspect_importance(df: pd.DataFrame, T: int = 3) -> pd.DataFrame
 # ---------------------------------------------------------------------------
 
 
-def compute_pueblo_aspect_quality(df: pd.DataFrame, T: int = 100) -> pd.DataFrame:
+def compute_pueblo_aspect_quality(
+    df: pd.DataFrame, T: float | None = None
+) -> pd.DataFrame:
     """Calcula la calidad de cada pueblo en cada aspecto.
 
     h_{p,j}   = sentimiento promedio (en [-2, 2]) para pueblo p, aspecto j.
@@ -142,10 +153,15 @@ def compute_pueblo_aspect_quality(df: pd.DataFrame, T: int = 100) -> pd.DataFram
       - Pocas menciones o neutras  -> Y ~ (N+1)/2 (calidad media)
       - Menciones negativas        -> Y -> 1 (baja calidad)
 
+    La temperatura T ancla el punto de inflexión de Y al valor absoluto
+    mediano de la señal h*phi no nula: la señal típica produce el máximo
+    gradiente de discriminación.
+
     Args:
         df: DataFrame con columnas ['Pueblo', 'aspect', 'sentiment'].
              Cada fila representa un chunk clasificado en un aspecto con un sentimiento.
         T: Temperatura para ajustar la sensibilidad de la función sigmoide.
+           Si es None (default), se deriva como median(|h_{p,j} * phi_{p,j}| != 0).
 
     Returns:
         pd.DataFrame: Shape (n_pueblos, len(ALL_ASPECTS)), valores en [1, 5].
@@ -166,7 +182,12 @@ def compute_pueblo_aspect_quality(df: pd.DataFrame, T: int = 100) -> pd.DataFram
     )
     phi = np.log1p(counts.values)
 
-    exponent = h.values * phi / T
+    signal = h.values * phi
+    if T is None:
+        nonzero_signal = np.abs(signal[signal != 0])
+        T = float(np.median(nonzero_signal)) if len(nonzero_signal) > 0 else 1.0
+
+    exponent = signal / T
     Y = pd.DataFrame(
         1.0 + (N - 1) / (1.0 + np.exp(-exponent)),
         index=h.index,
