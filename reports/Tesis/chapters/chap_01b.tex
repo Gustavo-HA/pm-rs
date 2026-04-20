@@ -1,13 +1,10 @@
 \chapter{Conjunto de datos} \label{chap:dataset}
 
-En este capítulo se describe el origen, estructura y preprocesamiento del conjunto de datos utilizado en esta tesis. El corpus proviene de la tarea compartida REST-MEX 2025, organizada en el marco de IberLEF 2025. Se detalla el contexto del evento, la composición del dataset original, y el proceso de filtrado aplicado para obtener una matriz de interacciones con densidad suficiente para el entrenamiento de sistemas de recomendación.
+En este capítulo se describe el origen, estructura y preprocesamiento del conjunto de datos utilizado en esta tesis. El corpus proviene de la tarea compartida REST-MEX 2025 \citep{alvarez-carmona_overview_2025}, organizada en el marco de IberLEF 2025 \citep{gonzalez-barba_overview_2025}. Se detalla el contexto del evento, la composición del dataset original, y el proceso de filtrado aplicado para obtener una matriz de interacciones con densidad suficiente para el entrenamiento de sistemas de recomendación.
 
-%% ============================================================
-%% EVENTO REST-MEX
-%% ============================================================
 \section{La tarea compartida REST-MEX} \label{sec:restmex}
 
-REST-MEX (\textit{Researching Sentiment Evaluation in Text for Mexican Magical Towns}) es una tarea compartida organizada dentro del foro de evaluación IberLEF (\textit{Iberian Languages Evaluation Forum}), cuyo objetivo es establecer referencias comparativas (\textit{benchmarks}) para sistemas de procesamiento de lenguaje natural en el ámbito del turismo mexicano \citep{alvarez-carmona_overview_2025}.
+REST-MEX (\textit{Research on} \textit{Sentiment Analysis} \textit{Task} \textit{for Mexican Tourist Texts}) es una tarea compartida organizada dentro del foro de evaluación IberLEF (\textit{Iberian Languages Evaluation Forum}), cuyo objetivo es establecer referencias comparativas (\textit{benchmarks}) para sistemas de procesamiento de lenguaje natural en el ámbito del turismo mexicano.
 
 La tarea se lanzó en 2021 con un enfoque en la predicción de polaridad de reseñas turísticas en español \citep{alvarez-carmona_overview_2021}. En ediciones subsecuentes, se incorporó la clasificación del tipo de servicio reseñado (hotel, restaurante o atractivo) \citep{alvarez-carmona_overview_2022} y la identificación del país de origen de la reseña \citep{alvarez-carmona_overview_2023}. La edición 2025 marca la cuarta iteración del evento e introduce cambios significativos: (i)~la clasificación geográfica se refina a nivel de Pueblo Mágico específico (40 pueblos predefinidos), (ii)~el corpus se amplía considerablemente, y (iii)~se fomenta el uso de técnicas avanzadas como ingeniería de \textit{prompts}, binarización de clases y selección de instancias basada en centroides.
 
@@ -24,18 +21,18 @@ Si bien la Tarea 4 del evento REST-MEX contempla la construcción de un sistema 
 %% ============================================================
 %% CORPUS ORIGINAL
 %% ============================================================
-\section{Corpus REST-MEX 2025} \label{sec:corpus}
+\section{Corpus} \label{sec:corpus}
 
-El corpus REST-MEX 2025 consta de 297,217 escritas por turistas que visitaron destinos representativos de México y compartieron sus opiniones en la plataforma TripAdvisor entre 2002 y 2024 \citep{alvarez-carmona_overview_2025}. Cada reseña está etiquetada con una calificación de polaridad en una escala ordinal de cinco puntos $\{1, 2, 3, 4, 5\}$, el tipo de negocio (Attractive, Hotel, Restaurant) y el Pueblo Mágico correspondiente.
+El corpus REST-MEX 2025 consta de 297,217 escritas por turistas que visitaron destinos representativos de México y compartieron sus opiniones en la plataforma TripAdvisor entre 2001 y 2023. Cada reseña está etiquetada con una calificación de polaridad en una escala ordinal de cinco puntos $\{1, 2, 3, 4, 5\}$, el tipo de negocio (Attractive, Hotel, Restaurant) y el Pueblo Mágico correspondiente.
 
 El corpus presenta un notable desbalance de clases en los tres ejes de clasificación. En el eje de polaridad, la clase 5 (muy bueno) concentra el $65.6\%$ de las instancias de entrenamiento ($136{,}561$ de $208{,}051$), mientras que las clases 1 y 2 representan conjuntamente menos del $5.3\%$. En el eje geográfico, tres pueblos (Tulum, Isla Mujeres y San Cristóbal de las Casas) concentran el $42.2\%$ de las instancias.
 
-Para los fines de esta tesis, se recopiló un conjunto extendido de reseñas a partir de los archivos fuente del evento. El proceso de carga concatenó 1,559 archivos CSV, resultando en un dataset crudo de 313,836 registros con 12 columnas originales.
+Para los fines de esta tesis, se recopiló un conjunto extendido de reseñas a partir de los archivos fuente del evento, resultando en un conjunto de datos crudo de 313,836 registros con 12 columnas originales.
 
 %% ============================================================
 %% ESQUEMA Y LIMPIEZA
 %% ============================================================
-\section{Estructura y limpieza del dataset} \label{sec:cleaning}
+\section{Estructura y limpieza} \label{sec:cleaning}
 
 Cada registro del dataset crudo contiene los siguientes campos:
 
@@ -65,11 +62,11 @@ Lugar         & Texto     & Nombre del establecimiento \\
 
 El proceso de limpieza consistió en:
 
-\begin{enumerate}
-    \item \textbf{Eliminación de columnas redundantes}: se descartaron \texttt{OrigenAutor} (53.5\% de valores nulos), \texttt{FechaOpinion} (redundante con \texttt{FechaEstadia}) y \texttt{Pais} (valor constante ``Mexico'').
-    \item \textbf{Eliminación de registros incompletos}: se eliminaron filas con valores nulos en los campos \texttt{Author}, \texttt{Calificacion}, \texttt{Review} o \texttt{FechaEstadia}, reduciendo el dataset de $313{,}836$ a \textbf{306,854 registros}.
-    \item \textbf{Conversión de fechas}: el campo \texttt{FechaEstadia}, originalmente en formato textual en español (e.g., ``enero de 2023''), se convirtió a formato \texttt{datetime} mediante un mapeo de nombres de meses en español a sus equivalentes numéricos.
-\end{enumerate}
+\begin{itemize}
+    \item \textbf{Eliminación de columnas redundantes}: se descartó el origen del autor (53.5\% de valores nulos), la fecha de la opinión (redundante con la fecha de la estadía) y el país (valor constante ``Mexico'').
+    \item \textbf{Eliminación de registros incompletos}: se eliminaron filas con valores nulos en los campos \textit{Author}, \textit{Calificacion}, \textit{Review} o \textit{FechaEstadia}, reduciendo el dataset de $313{,}836$ a \textbf{306,854 registros}.
+    \item \textbf{Conversión de fechas}: el campo \textit{FechaEstadia}, originalmente en formato textual en español (e.g., ``enero de 2023''), se convirtió a formato \textit{datetime} mediante un mapeo de nombres de meses en español a sus equivalentes numéricos.
+\end{itemize}
 
 El dataset limpio resultante contiene 9 columnas y abarca estancias desde 2001 hasta 2023.
 
@@ -80,12 +77,12 @@ El dataset limpio resultante contiene 9 columnas y abarca estancias desde 2001 h
 
 Para el entrenamiento de algoritmos de filtrado colaborativo, es necesario que la matriz de interacciones usuario-ítem presente una densidad mínima que permita calcular similitudes confiables entre usuarios o entre ítems. El dataset limpio de $306{,}854$ reseñas contiene un gran número de usuarios que han reseñado establecimientos en un solo Pueblo Mágico, lo cual resulta insuficiente para la tarea de recomendación a nivel de pueblos.
 
-Se diseñó un procedimiento de filtrado iterativo con dos criterios de densidad:
+Se diseñó un procedimiento de filtrado iterativo con dos criterios de densidad (Algoritmo~\ref{alg:filter}):
 
-\begin{enumerate}
+\begin{itemize}
     \item \textbf{Usuarios activos}: retener únicamente usuarios que hayan reseñado establecimientos en al menos $\tau_u = 3$ Pueblos Mágicos distintos.
     \item \textbf{Pueblos con cobertura}: retener únicamente Pueblos Mágicos que contengan al menos $\tau_p = 10$ establecimientos (\textit{Lugares}) distintos con reseñas.
-\end{enumerate}
+\end{itemize}
 
 Dado que la eliminación de usuarios puede dejar pueblos sin cobertura suficiente (y viceversa), el filtrado se aplica de forma iterativa hasta convergencia, es decir, hasta que ningún registro adicional sea eliminado. El Algoritmo~\ref{alg:filter} formaliza este procedimiento.
 
@@ -123,11 +120,12 @@ La aplicación del filtrado iterativo con $\tau_u = 3$ y $\tau_p = 10$ reduce el
 \textbf{Métrica} & \textbf{Dataset limpio} & \textbf{Dataset filtrado} \\
 \midrule
 Reseñas totales    & 306,854 & 79,264 \\
-Usuarios únicos    & ---     & 9,582  \\
-Pueblos Mágicos    & ---     & 48     \\
+Usuarios únicos    & 159,468     & 9,582  \\
+Pueblos Mágicos    & 95     & 48     \\
 Mín. pueblos/usuario & 1     & 3      \\
-Máx. pueblos/usuario & ---   & 28     \\
-Mín. lugares/pueblo  & ---   & 10     \\
+Máx. pueblos/usuario & 35   & 28     \\
+Mín. lugares/pueblo  & 1   & 10     \\
+Máx. lugares/pueblo  & 103 & 103 \\
 \bottomrule
 \end{tabular}
 \end{table}
