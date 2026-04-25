@@ -132,6 +132,7 @@ class AspectSentimentExtractor:
                     batch,
                     candidate_labels=labels,
                     hypothesis_template=HYPOTHESIS_TEMPLATE,
+                    multi_label=True,
                     batch_size=batch_size,
                 )
                 aspect_out.extend(res if isinstance(res, list) else [res])
@@ -156,6 +157,7 @@ class AspectSentimentExtractor:
             group["sentiment"] = [r[0]["label"] for r in sentiment_out]
             group["sentiment_score"] = [r[0]["score"] for r in sentiment_out]
 
+            group = group[group["aspect_score"] >= 0.5]
             frames.append(group)
 
         return pd.concat(frames, ignore_index=True)
