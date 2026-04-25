@@ -69,7 +69,7 @@ mtrs/
 
 ### ABSA Models
 
-- **Aspect**: `Recognai/zeroshot_selectra_medium` (zero-shot classification)
+- **Aspect**: `Recognai/bert-base-spanish-wwm-cased-xnli` (zero-shot NLI classification)
 - **Sentiment**: `vg055/roberta-base-bne-finetuned-TripAdvisorDomainAdaptation` (5-class: Muy Negativo → Muy Positivo)
 - **Aspects by type** — Restaurant: [servicio, precio, ambiente, comida]; Hotel: [servicio, precio, ambiente, ubicación, habitación]; Attractive: [servicio, ambiente, precio, naturaleza, cultura]
 
@@ -89,6 +89,86 @@ mtrs/
 - Bibliography: `references.bib`
 - Custom styles: `CIMATpreamble.sty`, `mypreamble.sty`
 - VS Code is configured to build with `latexmk-pygmentize` recipe
+
+## Wiki Maintenance
+
+The project wiki lives in `wiki/`. It is the shared memory and context platform for this project.
+
+### Directory Structure
+
+```
+wiki/
+├── index.md       ← Master catalog. Read first for any query. Update after every operation.
+├── log.md         ← Append-only event log. Never edit past entries.
+├── overview.md    ← Evolving synthesis. Keep current.
+├── MEMORY.md      ← Session-persistent context: open questions, hot threads, active tasks.
+├── DECISIONS.md   ← Architecture and design decision log.
+├── sources/       ← One summary page per ingested source.
+├── entities/      ← People, datasets, programs, systems.
+├── concepts/      ← Ideas, algorithms, frameworks, themes.
+└── analyses/      ← Query answers, comparisons, special outputs.
+```
+
+### Session Start Checklist
+
+At the start of every session:
+1. Read `wiki/log.md` (last 5 entries) to recall recent activity.
+2. Read `wiki/index.md` for a mental map of current content.
+3. Read `wiki/MEMORY.md` for open threads and pending decisions.
+4. Confirm with the user what they'd like to do today.
+
+### Operations
+
+**Ingest** (new source or major code change):
+1. Read source carefully.
+2. Create/update `wiki/sources/<slug>.md`.
+3. Create/update entity pages in `wiki/entities/`.
+4. Create/update concept pages in `wiki/concepts/`.
+5. Update `wiki/overview.md` if the synthesis meaningfully shifts.
+6. Update `wiki/index.md` (add/edit row, keep alphabetically sorted).
+7. Append entry to `wiki/log.md`.
+
+**Query** (user asks a question):
+1. Read `wiki/index.md` → identify relevant pages → read them.
+2. Synthesize answer with citations to wiki pages / sources.
+3. Offer to save non-trivial answers as `wiki/analyses/<slug>.md`.
+4. If saved, update `wiki/index.md` and append to `wiki/log.md`.
+
+**Lint** (health-check on request):
+- Flag contradictions, stale claims, orphan pages, missing cross-references, data gaps.
+- Produce a brief report and offer to fix issues one by one or in batch.
+
+### Page Frontmatter
+
+Every wiki page must include:
+```yaml
+---
+title: "Page Title"
+category: source | entity | concept | analysis | overview
+tags: [tag1, tag2]
+sources: [source-slug]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+### Log Format
+
+```markdown
+## [YYYY-MM-DD] <operation> | <title>
+
+<One paragraph description.>
+
+Pages touched: [[Page A]], [[Page B]]
+```
+
+### Cross-Reference Policy
+
+- Every entity/concept mentioned in a source summary must link to its wiki page.
+- Every entity/concept page must list which source pages reference it.
+- Use relative links: `[Page Name](../concepts/page-name.md)`.
+
+---
 
 ## Interaction Rules
 

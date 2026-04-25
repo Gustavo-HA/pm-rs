@@ -1,0 +1,6 @@
+outs:
+- md5: 947b187634c50a52d47f3cdcc8b5bf4e.dir
+  size: 42554
+  nfiles: 14
+  hash: md5
+  path: wiki
