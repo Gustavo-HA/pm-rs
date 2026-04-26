@@ -26,6 +26,7 @@ uv run scripts/split_dataset.py
 uv run scripts/run_aspects.py --splitter punkt --batch-size 64 --device cuda
 uv run scripts/build_matrices.py
 uv run scripts/run_models.py --k 5 10 20
+uv run scripts/run_optimization.py --metric ndcg --k 5 10 20
 ```
 
 ## Data Pipeline
@@ -36,6 +37,7 @@ filtered_dataset.parquet
   → run_aspects.py        → absa/{punkt|char}_aspect_sentiment.parquet
   → build_matrices.py     → matrices/{A,X,Y,R}.parquet
   → run_models.py         → evaluation metrics (P@K, R@K, NDCG@K, MRR, ILD, Coverage)
+  → run_optimization.py   → optimal weights w* ∈ Δ^{M-1} via PSO / DE / BO
 ```
 
 **Working dataset** (`data/rest-mex/processed/filtered_dataset.parquet`): users with ≥3 distinct pueblos, pueblos with ≥10 distinct places. Schema: `Author`, `Titulo`, `Review`, `Calificacion` (1–5 float), `FechaEstadia` (datetime), `Pueblo`, `Estado`, `Tipo` (Hotel/Restaurant/Attractive), `Lugar`.
@@ -53,12 +55,18 @@ mtrs/
 ├── aggregation/    # Matrix computation
 │   └── matrices.py     # compute_rating_matrix(), compute_user_aspect_importance(),
 │                       # compute_pueblo_aspect_quality(), compute_user_pueblo_aspect_sentiment()
-└── models/         # Recommender algorithms
-    ├── base.py         # BaseRecommender ABC: fit(), predict(), recommend()
-    ├── cf_classic.py   # CFClassic — SVD with biases (Koren et al. 2009)
-    ├── cf_multicriteria.py  # CFMultiCriteria — aspect-aware user-user CF (Musto et al. 2017)
-    ├── cb_quality.py   # CBQuality — content-based via aspect quality (Zhang et al. 2014)
-    └── cb_attention.py # CBAttention — user-user CF via cosine similarity on X matrix
+├── models/         # Recommender algorithms
+│   ├── base.py         # BaseRecommender ABC: fit(), predict(), recommend()
+│   ├── cf_classic.py   # CFClassic — SVD with biases (Koren et al. 2009)
+│   ├── cf_multicriteria.py  # CFMultiCriteria — aspect-aware user-user CF (Musto et al. 2017)
+│   ├── cb_quality.py   # CBQuality — content-based via aspect quality (Zhang et al. 2014)
+│   ├── cb_attention.py # CBAttention — user-user CF via cosine similarity on X matrix
+│   └── hybrid_linear_fusion.py  # HybridFusion — convex combination w ∈ Δ^{M-1}
+└── optimization/   # Metaheuristic weight optimization
+    ├── base.py         # WeightOptimizer ABC, OptimizationResult, fast vectorized evaluate_weights()
+    ├── pso.py          # PSOOptimizer — Particle Swarm (Kennedy & Eberhart, 1995)
+    ├── differential_evolution.py  # DEOptimizer — DE/best/1/bin via scipy (Storn & Price, 1997)
+    └── bayesian.py     # BayesianOptimizer — GP surrogate + EI acquisition (Snoek et al., 2012)
 ```
 
 ### Key Mathematical Formulations
