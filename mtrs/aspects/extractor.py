@@ -1,7 +1,7 @@
 # Módulo principal de inferencia para extracción de aspectos y sentimientos.
 import logging
 import pandas as pd
-from typing import Callable
+from typing import Callable, cast
 from tqdm.auto import tqdm
 
 from transformers import (
@@ -111,7 +111,7 @@ class AspectSentimentExtractor:
         # Inferencia agrupada por 'Tipo' para optimizar el paso de labels al Zero-Shot
         frames = []
         for tipo, group in sent_df.groupby("Tipo"):
-            labels = ASPECTS_BY_TYPE.get(tipo)
+            labels = ASPECTS_BY_TYPE.get(cast(str, tipo))
             if not labels:
                 logger.warning(
                     f"No hay aspectos definidos para Tipo='{tipo}'. Omitiendo..."
