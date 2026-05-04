@@ -11,9 +11,9 @@ La tarea se lanzó en 2021 con un enfoque en la predicción de polaridad de rese
 En esta edición, 32 equipos participantes enviaron un total de 70 sistemas válidos, explorando una amplia variedad de enfoques que incluyen modelos basados en Transformers, aprendizaje por transferencia, esquemas de binarización y estrategias de selección de instancias \citep{alvarez-carmona_overview_2025}. La tarea se estructura en tres subtareas simultáneas que, dada una reseña turística, requieren determinar:
 
 \begin{enumerate}
-    \item La \textbf{polaridad} del sentimiento, en una escala ordinal de 1 (muy malo) a 5 (muy bueno).
-    \item El \textbf{tipo de servicio} reseñado: \textit{Attractive}, \textit{Hotel} o \textit{Restaurant}.
-    \item El \textbf{Pueblo Mágico} específico al que refiere la reseña, seleccionado de una lista predefinida de 40 destinos.
+	\item La \textbf{polaridad} del sentimiento, en una escala ordinal de 1 (muy malo) a 5 (muy bueno).
+	\item El \textbf{tipo de servicio} reseñado: \textit{Attractive}, \textit{Hotel} o \textit{Restaurant}.
+	\item El \textbf{Pueblo Mágico} específico al que refiere la reseña, seleccionado de una lista predefinida de 40 destinos.
 \end{enumerate}
 
 Si bien la Tarea 4 del evento REST-MEX contempla la construcción de un sistema de recomendación para Pueblos Mágicos, en esta tesis se extiende dicho planteamiento incorporando análisis de sentimientos basado en aspectos y optimización metaheurística para la fusión de componentes, aspectos que no están contemplados en la formulación original del evento.
@@ -37,35 +37,35 @@ Para los fines de esta tesis, se recopiló un conjunto extendido de reseñas a p
 Cada registro del dataset crudo contiene los siguientes campos:
 
 \begin{table}[ht]
-\centering
-\caption{Esquema del dataset crudo de reseñas turísticas.}
-\label{tab:schema}
-\begin{tabular}{lll}
-\toprule
-\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción} \\
-\midrule
-Author        & Texto     & Seudónimo del usuario en TripAdvisor \\
-Titulo        & Texto     & Título de la reseña \\
-Review        & Texto     & Cuerpo de la reseña \\
-Calificacion  & Númerico  & Calificación numérica (1--5) \\
-OrigenAutor   & Texto     & País de origen del autor \\
-FechaOpinion  & Fecha     & Fecha de publicación de la reseña \\
-FechaEstadia  & Fecha     & Mes y año de la estancia \\
-Pueblo        & Texto     & Pueblo Mágico del establecimiento \\
-Estado        & Texto     & Estado de la república \\
-Pais          & Texto     & País del establecimiento \\
-Tipo          & Texto     & Tipo de servicio (Hotel/Restaurant/Attractive) \\
-Lugar         & Texto     & Nombre del establecimiento \\
-\bottomrule
-\end{tabular}
+	\centering
+	\caption{Esquema del dataset crudo de reseñas turísticas.}
+	\label{tab:schema}
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción}                           \\
+		\midrule
+		Author         & Texto         & Seudónimo del usuario en TripAdvisor           \\
+		Titulo         & Texto         & Título de la reseña                            \\
+		Review         & Texto         & Cuerpo de la reseña                            \\
+		Calificacion   & Númerico      & Calificación numérica (1--5)                   \\
+		OrigenAutor    & Texto         & País de origen del autor                       \\
+		FechaOpinion   & Fecha         & Fecha de publicación de la reseña              \\
+		FechaEstadia   & Fecha         & Mes y año de la estancia                       \\
+		Pueblo         & Texto         & Pueblo Mágico del establecimiento              \\
+		Estado         & Texto         & Estado de la república                         \\
+		Pais           & Texto         & País del establecimiento                       \\
+		Tipo           & Texto         & Tipo de servicio (Hotel/Restaurant/Attractive) \\
+		Lugar          & Texto         & Nombre del establecimiento                     \\
+		\bottomrule
+	\end{tabular}
 \end{table}
 
 El proceso de limpieza consistió en:
 
 \begin{itemize}
-    \item \textbf{Eliminación de columnas redundantes}: se descartó el origen del autor (53.5\% de valores nulos), la fecha de la opinión (redundante con la fecha de la estadía) y el país (valor constante ``Mexico'').
-    \item \textbf{Eliminación de registros incompletos}: se eliminaron filas con valores nulos en los campos \textit{Author}, \textit{Calificacion}, \textit{Review} o \textit{FechaEstadia}, reduciendo el dataset de $313{,}836$ a \textbf{306,854 registros}.
-    \item \textbf{Conversión de fechas}: el campo \textit{FechaEstadia}, originalmente en formato textual en español (e.g., ``enero de 2023''), se convirtió a formato \textit{datetime} mediante un mapeo de nombres de meses en español a sus equivalentes numéricos.
+	\item \textbf{Eliminación de columnas redundantes}: se descartó el origen del autor (53.5\% de valores nulos), la fecha de la opinión (redundante con la fecha de la estadía) y el país (valor constante ``Mexico'').
+	\item \textbf{Eliminación de registros incompletos}: se eliminaron filas con valores nulos en los campos \textit{Author}, \textit{Calificacion}, \textit{Review} o \textit{FechaEstadia}, reduciendo el dataset de $313{,}836$ a \textbf{306,854 registros}.
+	\item \textbf{Conversión de fechas}: el campo \textit{FechaEstadia}, originalmente en formato textual en español (e.g., ``enero de 2023''), se convirtió a formato \textit{datetime} mediante un mapeo de nombres de meses en español a sus equivalentes numéricos.
 \end{itemize}
 
 El dataset limpio resultante contiene 9 columnas y abarca estancias desde 2001 hasta 2023.
@@ -80,28 +80,28 @@ Para el entrenamiento de algoritmos de filtrado colaborativo, es necesario que l
 Se diseñó un procedimiento de filtrado iterativo con dos criterios de densidad (Algoritmo~\ref{alg:filter}):
 
 \begin{itemize}
-    \item \textbf{Usuarios activos}: retener únicamente usuarios que hayan reseñado establecimientos en al menos $\tau_u = 3$ Pueblos Mágicos distintos.
-    \item \textbf{Pueblos con cobertura}: retener únicamente Pueblos Mágicos que contengan al menos $\tau_p = 10$ establecimientos (\textit{Lugares}) distintos con reseñas.
+	\item \textbf{Usuarios activos}: retener únicamente usuarios que hayan reseñado establecimientos en al menos $\tau_u = 3$ Pueblos Mágicos distintos.
+	\item \textbf{Pueblos con cobertura}: retener únicamente Pueblos Mágicos que contengan al menos $\tau_p = 10$ establecimientos (\textit{Lugares}) distintos con reseñas.
 \end{itemize}
 
 Dado que la eliminación de usuarios puede dejar pueblos sin cobertura suficiente (y viceversa), el filtrado se aplica de forma iterativa hasta convergencia, es decir, hasta que ningún registro adicional sea eliminado. El Algoritmo~\ref{alg:filter} formaliza este procedimiento.
 
 \begin{algorithm}[ht]
-\caption{Filtrado iterativo para densidad de interacciones.}
-\label{alg:filter}
-\begin{algorithmic}[1]
-\REQUIRE Dataset $\mathcal{D}$, umbrales $\tau_u$, $\tau_p$
-\ENSURE Dataset filtrado $\mathcal{D}'$
-\STATE $\mathcal{D}' \leftarrow \mathcal{D}$
-\REPEAT
-    \STATE $n_{\text{prev}} \leftarrow |\mathcal{D}'|$
-    \STATE $\mathcal{U}_{\text{dense}} \leftarrow \{u \in \mathcal{U} \mid |\{p : \exists\, r \in \mathcal{D}' \text{ con } r.\text{Author} = u,\; r.\text{Pueblo} = p\}| \geq \tau_u\}$
-    \STATE $\mathcal{D}' \leftarrow \{r \in \mathcal{D}' \mid r.\text{Author} \in \mathcal{U}_{\text{dense}}\}$
-    \STATE $\mathcal{P}_{\text{dense}} \leftarrow \{p \in \mathcal{P} \mid |\{l : \exists\, r \in \mathcal{D}' \text{ con } r.\text{Pueblo} = p,\; r.\text{Lugar} = l\}| \geq \tau_p\}$
-    \STATE $\mathcal{D}' \leftarrow \{r \in \mathcal{D}' \mid r.\text{Pueblo} \in \mathcal{P}_{\text{dense}}\}$
-\UNTIL{$|\mathcal{D}'| = n_{\text{prev}}$}
-\RETURN $\mathcal{D}'$
-\end{algorithmic}
+	\caption{Filtrado iterativo para densidad de interacciones.}
+	\label{alg:filter}
+	\begin{algorithmic}[1]
+		\REQUIRE Dataset $\mathcal{D}$, umbrales $\tau_u$, $\tau_p$
+		\ENSURE Dataset filtrado $\mathcal{D}'$
+		\STATE $\mathcal{D}' \leftarrow \mathcal{D}$
+		\REPEAT
+		\STATE $n_{\text{prev}} \leftarrow |\mathcal{D}'|$
+		\STATE $\mathcal{U}_{\text{dense}} \leftarrow \{u \in \mathcal{U} \mid |\{p : \exists\, r \in \mathcal{D}' \text{ con } r.\text{Author} = u,\; r.\text{Pueblo} = p\}| \geq \tau_u\}$
+		\STATE $\mathcal{D}' \leftarrow \{r \in \mathcal{D}' \mid r.\text{Author} \in \mathcal{U}_{\text{dense}}\}$
+		\STATE $\mathcal{P}_{\text{dense}} \leftarrow \{p \in \mathcal{P} \mid |\{l : \exists\, r \in \mathcal{D}' \text{ con } r.\text{Pueblo} = p,\; r.\text{Lugar} = l\}| \geq \tau_p\}$
+		\STATE $\mathcal{D}' \leftarrow \{r \in \mathcal{D}' \mid r.\text{Pueblo} \in \mathcal{P}_{\text{dense}}\}$
+		\UNTIL{$|\mathcal{D}'| = n_{\text{prev}}$}
+		\RETURN $\mathcal{D}'$
+	\end{algorithmic}
 \end{algorithm}
 
 %% ============================================================
@@ -112,29 +112,29 @@ Dado que la eliminación de usuarios puede dejar pueblos sin cobertura suficient
 La aplicación del filtrado iterativo con $\tau_u = 3$ y $\tau_p = 10$ reduce el dataset de $306{,}854$ a \textbf{79,264 registros}, correspondientes a \textbf{9,582 usuarios} y \textbf{48 Pueblos Mágicos}. La Tabla~\ref{tab:dataset_stats} resume las estadísticas principales antes y después del filtrado.
 
 \begin{table}[ht]
-\centering
-\caption{Estadísticas del dataset antes y después del filtrado de densidad.}
-\label{tab:dataset_stats}
-\begin{tabular}{lrr}
-\toprule
-\textbf{Métrica} & \textbf{Dataset limpio} & \textbf{Dataset filtrado} \\
-\midrule
-Reseñas totales    & 306,854 & 79,264 \\
-Usuarios únicos    & 159,468     & 9,582  \\
-Pueblos Mágicos    & 95     & 48     \\
-Mín. pueblos/usuario & 1     & 3      \\
-Máx. pueblos/usuario & 35   & 28     \\
-Mín. lugares/pueblo  & 1   & 10     \\
-Máx. lugares/pueblo  & 103 & 103 \\
-\bottomrule
-\end{tabular}
+	\centering
+	\caption{Estadísticas del dataset antes y después del filtrado de densidad.}
+	\label{tab:dataset_stats}
+	\begin{tabular}{lrr}
+		\toprule
+		\textbf{Métrica}     & \textbf{Dataset limpio} & \textbf{Dataset filtrado} \\
+		\midrule
+		Reseñas totales      & 306,854                 & 79,264                    \\
+		Usuarios únicos      & 159,468                 & 9,582                     \\
+		Pueblos Mágicos      & 95                      & 48                        \\
+		Mín. pueblos/usuario & 1                       & 3                         \\
+		Máx. pueblos/usuario & 35                      & 28                        \\
+		Mín. lugares/pueblo  & 1                       & 10                        \\
+		Máx. lugares/pueblo  & 103                     & 103                       \\
+		\bottomrule
+	\end{tabular}
 \end{table}
 
 La distribución de pueblos en el dataset filtrado presenta un marcado desbalance geográfico. Tulum es el pueblo con mayor representación ($10{,}051$ títulos únicos), seguido de Isla Mujeres ($6{,}082$) y San Cristóbal de las Casas ($4{,}902$), mientras que pueblos como Tecate ($175$), San Sebastián del Oeste ($193$) y Santiago ($242$) tienen una representación considerablemente menor.
 
 En términos de la matriz de utilidad para el sistema de recomendación---donde las filas representan usuarios y las columnas Pueblos Mágicos---la dispersión (\textit{sparsity}) se calcula como:
 \begin{equation} \label{eq:sparsity}
-    \text{sparsity} = 1 - \frac{|\{(u, p) : \exists\, r \in \mathcal{D}'\}|}{|\mathcal{U}| \times |\mathcal{P}|} = 1 - \frac{n_{\text{interacciones}}}{9{,}582 \times 48} \approx 90.32\%
+	\text{sparsity} = 1 - \frac{|\{(u, p) : \exists\, r \in \mathcal{D}'\}|}{|\mathcal{U}| \times |\mathcal{P}|} = 1 - \frac{n_{\text{interacciones}}}{9{,}582 \times 48} \approx 90.32\%
 \end{equation}
 
 Esta dispersión del $90.32\%$ implica que cada usuario ha interactuado, en promedio, con menos de 5 de los 48 pueblos disponibles. En cuanto a las calificaciones, la media global es $\bar{r} = 4.41$ con el $61.3\%$ de las calificaciones siendo de 5 estrellas, reflejando el sesgo positivo característico de las plataformas de reseñas turísticas. Estos desafíos---alta dispersión y desbalance en calificaciones---motivan la adopción de un enfoque híbrido que combine señales colaborativas con información semántica extraída de las reseñas textuales, como se detalla en los capítulos subsecuentes.

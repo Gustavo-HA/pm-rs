@@ -4,22 +4,19 @@ Los Sistemas de Recomendación (SR) se han convertido en una herramienta fundame
 
 \section{Motivación}
 
-Actualmente, el sector turístico representa un pilar importante para la economía de México, impulsando el desarrollo regional y contribuyendo de manera directa al bienestar de la población. Este impacto se refleja en contribuciones considerables al Producto Interno Bruto del país (8.7\% en 2024), generando empleo y atrayendo inversiones tanto nacionales como extranjeras \citep{TurismoPIB_2024}. Uno de los programas turísticos más emblemáticos propuesto por la Secretaría de Turismo (SECTUR), es el programa de Pueblos Mágicos (PM), que busca promover destinos turísticos en localidades pequeñas con características culturales, históricas o naturales únicas. Se ha observado que la iniciativa de los PM ha resultado ser beneficioso para estas comunidades tanto económica como culturalmente \citep{Fernández_Poncela_2016}. Es por esto que desarrollar un SR efectivo para recomendar Pueblos Mágicos a los turistas no solo tiene el potencial de mejorar la experiencia del usuario, sino también de contribuir al desarrollo sostenible de estas comunidades y a la promoción del turismo nacional.  
+Actualmente, el sector turístico representa un pilar importante para la economía de México, impulsando el desarrollo regional y contribuyendo de manera directa al bienestar de la población. Este impacto se refleja en contribuciones considerables al Producto Interno Bruto del país (8.7\% en 2024), generando empleo y atrayendo inversiones tanto nacionales como extranjeras \citep{TurismoPIB_2024}. Uno de los programas turísticos más emblemáticos propuesto por la Secretaría de Turismo (SECTUR), es el programa de Pueblos Mágicos (PM), que busca promover destinos turísticos en localidades pequeñas con características culturales, históricas o naturales únicas. Se ha observado que la iniciativa de los PM ha resultado ser beneficioso para estas comunidades tanto económica como culturalmente \citep{Fernández_Poncela_2016}. Es por esto que desarrollar un SR efectivo para recomendar Pueblos Mágicos a los turistas no solo tiene el potencial de mejorar la experiencia del usuario, sino también de contribuir al desarrollo sostenible de estas comunidades y a la promoción del turismo nacional.
 
 Sin embargo, los turistas se enfrentan a un problema de elección considerable: a inicios del año 2026, el programa contempla 177 localidades distribuidas a lo largo del territorio nacional. Los SR basados únicamente en el historial de valoraciones presentan limitaciones estructurales en este contexto: los datos de reseñas de Pueblos Mágicos exhiben una alta dispersión y un marcado sesgo positivo en las calificaciones, estos rasgos degradan la capacidad predictiva del filtrado colaborativo clásico \citep{adomavicius_toward_2005, koren_matrix_2009}. Múltiples propuestas de Sistemas de Recomendación Híbridos (SRH) han demostrado ser efectivos para suavizar la limitación de la dispersión, añadiendo módulos de recomendación basados en contenido o en conocimiento que puedan complementar la predicción de preferencias \citep{Hossain_Sikder_Andreou_2025}, por lo que esta dirección se presenta como una solución prometedora para el caso de los Pueblos Mágicos.
 
-
-Al mismo tiempo, las reseñas textuales que acompañan a las valoraciones contienen información semántica valiosa sobre aspectos específicos del destino que los enfoques basados exclusivamente en calificaciones numéricas no aprovechan. El Análisis de Sentimientos Basado en Aspectos (\textit{Aspect-Based Sentiment Analysis}, ABSA) ha surgido como una alternativa para extraer preferencias a nivel fino a partir de texto \citep{zhang_survey_2023}. Integrar ABSA en un SR permite construir perfiles de usuario y de destino multidimensionales que capturan la importancia relativa de cada aspecto turístico para cada viajero y la calidad asociada a cada aspecto en cada destino. 
+Al mismo tiempo, las reseñas textuales que acompañan a las valoraciones contienen información semántica valiosa sobre aspectos específicos del destino que los enfoques basados exclusivamente en calificaciones numéricas no aprovechan. El Análisis de Sentimientos Basado en Aspectos (\textit{Aspect-Based Sentiment Analysis}, ABSA) ha surgido como una alternativa para extraer preferencias a nivel fino a partir de texto \citep{zhang_survey_2023}. Integrar ABSA en un SR permite construir perfiles de usuario y de destino multidimensionales que capturan la importancia relativa de cada aspecto turístico para cada viajero y la calidad asociada a cada aspecto en cada destino.
 
 %Trabajos previos han explorado esta dirección: \citet{zhang_explicit_2014} proponen modelos de factores explícitos (EFM) que relacionan la atención del usuario con la calidad del ítem a nivel de aspecto, mientras que \citet{musto_multi-criteria_2017} extienden el CF al caso multicriterio mediante puntuaciones de sentimiento por aspecto extraídas de reseñas.
 
 Es por esto que en este trabajo se propone un SRH para Pueblos Mágicos que integra cuatro componentes complementarios: CF clásico mediante factorización de matrices (SVD), CF multicriterio basado en perfiles de sentimiento por aspecto, y dos variantes de recomendación basada en contenido que explotan la atención del usuario y la calidad del destino a nivel de aspecto. La información aspecto-sentimiento se extrae mediante una cadena de procesamiento ABSA aplicada al corpus de reseñas del conjunto de datos REST-MEX \citep{alvarez-carmona_overview_2021}, que registra opiniones sobre hoteles, restaurantes y atractivos de Pueblos Mágicos. Los pesos de fusión entre componentes se optimizan mediante búsqueda metaheurística con el objetivo de maximizar métricas de calidad o diversidad, produciendo así recomendaciones más precisas, diversas y explicables que las ofrecidas por cualquier componente individual \citep{burke_hybrid_2002}.
 
-
 \section{Hipótesis de trabajo} \label{sec:hypothesis}
 
 La hipótesis de esta tesis es que la integración de información aspecto-sentimiento extraída de reseñas textuales en un sistema de recomendación híbrido mejora la precisión, diversidad y explicabilidad de las recomendaciones de Pueblos Mágicos respecto a enfoques basados únicamente en calificaciones numéricas.
-
 
 \section{Objetivos} \label{sec:objective}
 
@@ -30,19 +27,19 @@ Diseñar, implementar y evaluar un sistema de recomendación híbrido para Puebl
 \subsection*{Objetivos específicos}
 
 \begin{enumerate}
-    \item Preparar el corpus de trabajo a partir del dataset REST-MEX~2025 \citep{alvarez-carmona_overview_2025}, realizando una limpieza de datos y aplicando un filtrado iterativo que garantice una densidad mínima en la matriz de interacciones.
+	\item Preparar el corpus de trabajo a partir del dataset REST-MEX~2025 \citep{alvarez-carmona_overview_2025}, realizando una limpieza de datos y aplicando un filtrado iterativo que garantice una densidad mínima en la matriz de interacciones.
 
-    \item Implementar una cadena de procesamiento ABSA en español para el dominio turístico, compuesta por segmentación de reseñas, clasificación \textit{Zero-Shot} de aspectos turísticos y clasificación de sentimiento.
+	\item Implementar una cadena de procesamiento ABSA en español para el dominio turístico, compuesta por segmentación de reseñas, clasificación \textit{Zero-Shot} de aspectos turísticos y clasificación de sentimiento.
 
-    \item Derivar las matrices estructurales del sistema que relacionen los usuarios y los items, además de evaluar matrices propuestas por la literatura que relacionan tanto usuarios como items con los aspectos y su sentimiento asociado \citep{musto_multi-criteria_2017}.
+	\item Derivar las matrices estructurales del sistema que relacionen los usuarios y los items, además de evaluar matrices propuestas por la literatura que relacionan tanto usuarios como items con los aspectos y su sentimiento asociado \citep{musto_multi-criteria_2017}.
 
-    \item Implementar cuatro componentes de recomendación complementarios: (i)~filtrado colaborativo clásico mediante factorización matricial con sesgos \citep{koren_matrix_2009}, (ii)~filtrado colaborativo multicriterio basado en perfiles sentimentales por aspecto, (iii)~filtrado basado en contenido por correspondencia entre atención de usuario y calidad de pueblo, y (iv)~filtrado basado en contenido sobre perfiles de atención.
+	\item Implementar cuatro componentes de recomendación complementarios: (i)~filtrado colaborativo clásico mediante factorización matricial con sesgos \citep{koren_matrix_2009}, (ii)~filtrado colaborativo multicriterio basado en perfiles sentimentales por aspecto, (iii)~filtrado basado en contenido por correspondencia entre atención de usuario y calidad de pueblo, y (iv)~filtrado basado en contenido sobre perfiles de atención.
 
-    \item Formular la fusión de componentes como un problema de optimización continua, y compararla mediante al menos dos metaheurísticas representativas: Evolución Diferencial, Enjambre de Partículas y/o Optimización Bayesiana.
+	\item Formular la fusión de componentes como un problema de optimización continua, y compararla mediante al menos dos metaheurísticas representativas: Evolución Diferencial, Enjambre de Partículas y/o Optimización Bayesiana.
 
-    \item Evaluar el sistema bajo un protocolo de validación por \textit{leave-one-out} por usuario, reportando métricas de precisión de ranking y de diversidad.
+	\item Evaluar el sistema bajo un protocolo de validación por \textit{leave-one-out} por usuario, reportando métricas de precisión de ranking y de diversidad.
 
-    \item Diseñar un módulo de explicabilidad que, aprovechando los perfiles aspecto-sentimiento, genere justificaciones interpretables de cada recomendación en términos de aspectos valorados por el usuario y aspectos destacados del pueblo recomendado.
+	\item Diseñar un módulo de explicabilidad que, aprovechando los perfiles aspecto-sentimiento, genere justificaciones interpretables de cada recomendación en términos de aspectos valorados por el usuario y aspectos destacados del pueblo recomendado.
 \end{enumerate}
 
 \section{Contribución} \label{sec:contribution}
@@ -50,19 +47,11 @@ Diseñar, implementar y evaluar un sistema de recomendación híbrido para Puebl
 Las contribuciones de esta tesis se organizan en cuatro planos:
 
 \begin{description}
-    \item[Contribución metodológica.] Se propone una arquitectura híbrida de cuatro componentes cuyas señales son complementarias por construcción. La fusión se formula como problema de optimización continua, lo cual permite adaptar el sistema a diferentes objetivos operativos (precisión o diversidad) sin rediseñar los componentes.
+	\item[Contribución metodológica.] Se propone una arquitectura híbrida de cuatro componentes cuyas señales son complementarias por construcción. La fusión se formula como problema de optimización continua, lo cual permite adaptar el sistema a diferentes objetivos operativos (precisión o diversidad) sin rediseñar los componentes.
 
-    \item[Contribución técnica.] Se libera el framework \textit{mtrs}, una implementación modular y reproducible que incluye: (i)~el pipeline ABSA productivo para español turístico con dos estrategias de segmentación (\textit{Punkt} y \textit{char-based}), (ii)~las rutinas de construcción de las matrices $A$, $X$, $Y$, $R$, y (iii)~las implementaciones de los cuatro recomendadores.
+	\item[Contribución técnica.] Se libera el framework \textit{mtrs}, una implementación modular y reproducible que incluye: (i)~el pipeline ABSA productivo para español turístico con dos estrategias de segmentación (\textit{Punkt} y \textit{char-based}), (ii)~las rutinas de construcción de las matrices $A$, $X$, $Y$, $R$, y (iii)~las implementaciones de los cuatro recomendadores.
 
-    \item[Contribución aplicada.] El sistema desarrollado constituye una herramienta potencialmente útil para el sector turístico mexicano al producir recomendaciones de Pueblos Mágicos. Al permitir modular la diversidad del catálogo expuesto, el sistema contribuye al objetivo de la SECTUR de distribuir los flujos turísticos hacia destinos menos visibles pero igualmente valiosos \citep{TurismoPIB_2024}.
+	\item[Contribución aplicada.] El sistema desarrollado constituye una herramienta potencialmente útil para el sector turístico mexicano al producir recomendaciones de Pueblos Mágicos. Al permitir modular la diversidad del catálogo expuesto, el sistema contribuye al objetivo de la SECTUR de distribuir los flujos turísticos hacia destinos menos visibles pero igualmente valiosos \citep{TurismoPIB_2024}.
 \end{description}
 
 \section{Organización de la tesis}
-
-
-
-
-
-
-
-

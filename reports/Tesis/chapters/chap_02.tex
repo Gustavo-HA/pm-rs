@@ -9,7 +9,7 @@ En este capítulo se presentan los fundamentos teóricos que sustentan el desarr
 
 Un sistema de recomendación (SR) es un sistema de filtrado de información diseñado para predecir la preferencia o utilidad que un usuario asignaría a un ítem con el cual no ha interactuado previamente \citep{raza_comprehensive_2025}. Formalmente, el problema se define como la estimación de una función de utilidad:
 \begin{equation} \label{eq:utility}
-    \hat{r}_{ui} = f(u, i; \Theta)
+	\hat{r}_{ui} = f(u, i; \Theta)
 \end{equation}
 donde $u \in \mathcal{U}$ representa un usuario, $i \in \mathcal{I}$ un ítem, $\Theta$ los parámetros del modelo y $\hat{r}_{ui}$ la calificación predicha. El conjunto de interacciones observadas se organiza en una \textit{matriz de utilidad} $\mathbf{R} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{I}|}$, donde $r_{ui}$ denota la calificación que el usuario $u$ asignó al ítem $i$, y la mayoría de las entradas permanecen desconocidas \citep{adomavicius_toward_2005}.
 
@@ -27,22 +27,22 @@ Los métodos basados en memoria (también llamados \textit{neighborhood-based}) 
 \paragraph{FC basado en usuarios.}
 La predicción para un usuario $u$ sobre un ítem $i$ se calcula como el promedio ponderado de las calificaciones de los usuarios más similares a $u$ que han calificado el ítem $i$:
 \begin{equation} \label{eq:user_cf}
-    \hat{r}_{ui} = \bar{r}_u + \frac{\displaystyle\sum_{v \in \mathcal{N}_k(u)} \mathrm{sim}(u, v) \cdot (r_{vi} - \bar{r}_v)}{\displaystyle\sum_{v \in \mathcal{N}_k(u)} |\mathrm{sim}(u, v)|}
+	\hat{r}_{ui} = \bar{r}_u + \frac{\displaystyle\sum_{v \in \mathcal{N}_k(u)} \mathrm{sim}(u, v) \cdot (r_{vi} - \bar{r}_v)}{\displaystyle\sum_{v \in \mathcal{N}_k(u)} |\mathrm{sim}(u, v)|}
 \end{equation}
 donde $\bar{r}_u$ es la calificación promedio del usuario $u$, $\mathcal{N}_k(u)$ denota los $k$ vecinos más similares a $u$ que han calificado el ítem $i$, y $\mathrm{sim}(u, v)$ es una medida de similitud entre usuarios. Las medidas más utilizadas son la similitud coseno y la correlación de Pearson:
 \begin{equation} \label{eq:cosine}
-    \mathrm{sim}_{\cos}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{ui} \cdot r_{vi}}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{ui}^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{vi}^2}}
+	\mathrm{sim}_{\cos}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{ui} \cdot r_{vi}}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{ui}^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{vi}^2}}
 \end{equation}
 
 \begin{equation} \label{eq:pearson}
-    \mathrm{sim}_{\mathrm{Pearson}}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{ui} - \bar{r}_u)(r_{vi} - \bar{r}_v)}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{ui} - \bar{r}_u)^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{vi} - \bar{r}_v)^2}}
+	\mathrm{sim}_{\mathrm{Pearson}}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{ui} - \bar{r}_u)(r_{vi} - \bar{r}_v)}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{ui} - \bar{r}_u)^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{vi} - \bar{r}_v)^2}}
 \end{equation}
 donde $\mathcal{I}_{uv} = \{i \in \mathcal{I} \mid r_{ui} \neq 0 \land r_{vi} \neq 0\}$ es el conjunto de ítems co-calificados por ambos usuarios.
 
 \paragraph{FC basado en ítems.}
 De manera análoga, la similitud se calcula entre ítems en lugar de entre usuarios. La predicción se obtiene como \citep{linden_amazon_2003}:
 \begin{equation} \label{eq:item_cf}
-    \hat{r}_{ui} = \frac{\displaystyle\sum_{j \in \mathcal{N}_k(i)} \mathrm{sim}(i, j) \cdot r_{uj}}{\displaystyle\sum_{j \in \mathcal{N}_k(i)} |\mathrm{sim}(i, j)|}
+	\hat{r}_{ui} = \frac{\displaystyle\sum_{j \in \mathcal{N}_k(i)} \mathrm{sim}(i, j) \cdot r_{uj}}{\displaystyle\sum_{j \in \mathcal{N}_k(i)} |\mathrm{sim}(i, j)|}
 \end{equation}
 donde $\mathcal{N}_k(i)$ son los $k$ ítems más similares a $i$ que el usuario $u$ ha calificado. Este enfoque tiende a ser más escalable que el basado en usuarios cuando $|\mathcal{U}| \gg |\mathcal{I}|$, ya que las similitudes entre ítems son más estables en el tiempo.
 
@@ -52,36 +52,36 @@ Ambas variantes enfrentan limitaciones inherentes: la complejidad computacional 
 
 Los métodos basados en modelo aprenden una representación paramétrica compacta de los patrones de interacción. La técnica más establecida es la \textbf{factorización matricial} (FM), que descompone la matriz de utilidad en el producto de dos matrices de menor dimensionalidad \citep{koren_matrix_2009}:
 \begin{equation} \label{eq:mf}
-    \mathbf{R} \approx \mathbf{P} \mathbf{Q}^\top
+	\mathbf{R} \approx \mathbf{P} \mathbf{Q}^\top
 \end{equation}
 donde $\mathbf{P} \in \mathbb{R}^{|\mathcal{U}| \times k}$ y $\mathbf{Q} \in \mathbb{R}^{|\mathcal{I}| \times k}$ representan las matrices de factores latentes de usuarios e ítems, respectivamente, y $k \ll \min(|\mathcal{U}|, |\mathcal{I}|)$ es la dimensionalidad del espacio latente. Cada fila $\mathbf{p}_u \in \mathbb{R}^k$ codifica las preferencias del usuario $u$, y cada fila $\mathbf{q}_i \in \mathbb{R}^k$ las características latentes del ítem $i$, de modo que la predicción se obtiene como:
 \begin{equation} \label{eq:mf_pred}
-    \hat{r}_{ui} = \mathbf{p}_u^\top \mathbf{q}_i
+	\hat{r}_{ui} = \mathbf{p}_u^\top \mathbf{q}_i
 \end{equation}
 
 En el contexto de REST-MEX, los $k$ factores latentes podrían capturar dimensiones implícitas como la preferencia por aspectos culturales, gastronómicos o naturales de los Pueblos Mágicos, aunque su naturaleza latente impide una interpretación directa---limitación que motiva la incorporación de aspectos explícitos vía ABSA (Sección~\ref{sec:absa}).
 
 Para estimar los parámetros, se minimiza el error cuadrático regularizado sobre las interacciones observadas $\mathcal{K}$:
 \begin{equation} \label{eq:mf_loss}
-    \min_{\mathbf{P}, \mathbf{Q}} \sum_{(u,i) \in \mathcal{K}} \left( r_{ui} - \mathbf{p}_u^\top \mathbf{q}_i \right)^2 + \lambda \left( \|\mathbf{p}_u\|^2 + \|\mathbf{q}_i\|^2 \right)
+	\min_{\mathbf{P}, \mathbf{Q}} \sum_{(u,i) \in \mathcal{K}} \left( r_{ui} - \mathbf{p}_u^\top \mathbf{q}_i \right)^2 + \lambda \left( \|\mathbf{p}_u\|^2 + \|\mathbf{q}_i\|^2 \right)
 \end{equation}
 donde $\lambda > 0$ es el coeficiente de regularización que previene el sobreajuste. Esta optimización se resuelve típicamente mediante descenso por gradiente estocástico (SGD) o mínimos cuadrados alternados (ALS).
 
 Se consideran las siguientes variantes relevantes para este trabajo:
 \begin{itemize}
-    \item \textbf{SVD} (\textit{Singular Value Decomposition}): Extiende la Ecuación~(\ref{eq:mf_pred}) incorporando sesgos de usuario e ítem:
-    \begin{equation} \label{eq:svd_bias}
-        \hat{r}_{ui} = \mu + b_u + b_i + \mathbf{p}_u^\top \mathbf{q}_i
-    \end{equation}
-    donde $\mu$ es la media global de calificaciones, $b_u$ el sesgo del usuario y $b_i$ el sesgo del ítem.
+	\item \textbf{SVD} (\textit{Singular Value Decomposition}): Extiende la Ecuación~(\ref{eq:mf_pred}) incorporando sesgos de usuario e ítem:
+	      \begin{equation} \label{eq:svd_bias}
+		      \hat{r}_{ui} = \mu + b_u + b_i + \mathbf{p}_u^\top \mathbf{q}_i
+	      \end{equation}
+	      donde $\mu$ es la media global de calificaciones, $b_u$ el sesgo del usuario y $b_i$ el sesgo del ítem.
 
-    \item \textbf{SVD++}: Incorpora retroalimentación implícita al modelo SVD, enriqueciendo la representación del usuario con información de los ítems que ha calificado \citep{koren_factorization_2008}:
-    \begin{equation} \label{eq:svdpp}
-        \hat{r}_{ui} = \mu + b_u + b_i + \left( \mathbf{p}_u + |\mathcal{I}_u|^{-\frac{1}{2}} \sum_{j \in \mathcal{I}_u} \mathbf{y}_j \right)^\top \mathbf{q}_i
-    \end{equation}
-    donde $\mathcal{I}_u$ es el conjunto de ítems calificados por $u$ y $\mathbf{y}_j \in \mathbb{R}^k$ son vectores que capturan la influencia implícita de haber interactuado con el ítem $j$.
+	\item \textbf{SVD++}: Incorpora retroalimentación implícita al modelo SVD, enriqueciendo la representación del usuario con información de los ítems que ha calificado \citep{koren_factorization_2008}:
+	      \begin{equation} \label{eq:svdpp}
+		      \hat{r}_{ui} = \mu + b_u + b_i + \left( \mathbf{p}_u + |\mathcal{I}_u|^{-\frac{1}{2}} \sum_{j \in \mathcal{I}_u} \mathbf{y}_j \right)^\top \mathbf{q}_i
+	      \end{equation}
+	      donde $\mathcal{I}_u$ es el conjunto de ítems calificados por $u$ y $\mathbf{y}_j \in \mathbb{R}^k$ son vectores que capturan la influencia implícita de haber interactuado con el ítem $j$.
 
-    \item \textbf{NMF} (\textit{Non-negative Matrix Factorization}): Impone la restricción $\mathbf{P} \geq 0$, $\mathbf{Q} \geq 0$, lo que produce representaciones aditivas más interpretables, donde cada factor latente contribuye exclusivamente de forma positiva a la predicción.
+	\item \textbf{NMF} (\textit{Non-negative Matrix Factorization}): Impone la restricción $\mathbf{P} \geq 0$, $\mathbf{Q} \geq 0$, lo que produce representaciones aditivas más interpretables, donde cada factor latente contribuye exclusivamente de forma positiva a la predicción.
 \end{itemize}
 
 En este trabajo se emplea la biblioteca Surprise \citep{surprise_hug_2020} para la implementación de los algoritmos de FC, la cual provee implementaciones de KNNBasic, KNNWithMeans, SVD, SVD++ y NMF, entre otros.
@@ -91,22 +91,22 @@ En este trabajo se emplea la biblioteca Surprise \citep{surprise_hug_2020} para 
 
 El filtrado basado en contenido (FBC) recomienda ítems cuyas características son similares a las de ítems previamente preferidos por el usuario \citep{raza_comprehensive_2025, pazzani_content_2007}. Se construyen dos representaciones vectoriales:
 \begin{itemize}
-    \item \textbf{Perfil del ítem} $\boldsymbol{\phi}(i) \in \mathbb{R}^d$: un vector de $d$ características que describe al ítem $i$.
-    \item \textbf{Perfil del usuario} $\boldsymbol{\theta}(u) \in \mathbb{R}^d$: una agregación de los perfiles de ítems con los que el usuario ha interactuado, típicamente ponderada por las calificaciones otorgadas.
+	\item \textbf{Perfil del ítem} $\boldsymbol{\phi}(i) \in \mathbb{R}^d$: un vector de $d$ características que describe al ítem $i$.
+	\item \textbf{Perfil del usuario} $\boldsymbol{\theta}(u) \in \mathbb{R}^d$: una agregación de los perfiles de ítems con los que el usuario ha interactuado, típicamente ponderada por las calificaciones otorgadas.
 \end{itemize}
 
 La predicción se obtiene mediante la similitud entre ambos perfiles:
 \begin{equation} \label{eq:cbf}
-    \hat{r}_{ui} = \mathrm{sim}\!\left(\boldsymbol{\theta}(u), \boldsymbol{\phi}(i)\right) = \frac{\boldsymbol{\theta}(u)^\top \boldsymbol{\phi}(i)}{\|\boldsymbol{\theta}(u)\| \cdot \|\boldsymbol{\phi}(i)\|}
+	\hat{r}_{ui} = \mathrm{sim}\!\left(\boldsymbol{\theta}(u), \boldsymbol{\phi}(i)\right) = \frac{\boldsymbol{\theta}(u)^\top \boldsymbol{\phi}(i)}{\|\boldsymbol{\theta}(u)\| \cdot \|\boldsymbol{\phi}(i)\|}
 \end{equation}
 
 En el contexto de esta tesis, las características de los ítems no provienen de metadatos estáticos sino de las reseñas textuales, procesadas mediante análisis de sentimientos basado en aspectos (ABSA, Sección~\ref{sec:absa}). Concretamente, el perfil de un Pueblo Mágico se construye como un vector de sentimientos por aspecto:
 \begin{equation} \label{eq:item_profile}
-    \boldsymbol{\phi}(i) = \left(s_{i,1},\; s_{i,2},\; \ldots,\; s_{i,A}\right)
+	\boldsymbol{\phi}(i) = \left(s_{i,1},\; s_{i,2},\; \ldots,\; s_{i,A}\right)
 \end{equation}
 donde $s_{i,a}$ es el sentimiento agregado del aspecto $a$ (e.g., \textit{servicio}, \textit{gastronomía}, \textit{naturaleza}) para el pueblo $i$, y $A$ es el número de aspectos definidos. El perfil del usuario se obtiene como el promedio ponderado de los perfiles de los pueblos que ha visitado:
 \begin{equation} \label{eq:user_profile}
-    \boldsymbol{\theta}(u) = \frac{1}{|\mathcal{I}_u|} \sum_{i \in \mathcal{I}_u} r_{ui} \cdot \boldsymbol{\phi}(i)
+	\boldsymbol{\theta}(u) = \frac{1}{|\mathcal{I}_u|} \sum_{i \in \mathcal{I}_u} r_{ui} \cdot \boldsymbol{\phi}(i)
 \end{equation}
 
 La principal ventaja del FBC sobre el FC es su capacidad de mitigar el \textit{cold-start} de ítems: un nuevo Pueblo Mágico puede ser recomendado tan pronto como se disponga de reseñas textuales, sin necesidad de calificaciones numéricas previas. Su limitación principal es la sobre-especialización, ya que tiende a recomendar ítems similares a los ya conocidos por el usuario, reduciendo la diversidad de las recomendaciones.
@@ -118,7 +118,7 @@ Los sistemas híbridos combinan múltiples estrategias de recomendación para co
 
 En esta tesis se adopta una estrategia de \textbf{combinación ponderada}, donde la predicción final es una combinación lineal convexa de las predicciones de los componentes colaborativo y basado en contenido:
 \begin{equation} \label{eq:hybrid}
-    \hat{r}_{ui} = \alpha \cdot \hat{r}_{ui}^{\,\mathrm{CF}} + (1 - \alpha) \cdot \hat{r}_{ui}^{\,\mathrm{CBF}}
+	\hat{r}_{ui} = \alpha \cdot \hat{r}_{ui}^{\,\mathrm{CF}} + (1 - \alpha) \cdot \hat{r}_{ui}^{\,\mathrm{CBF}}
 \end{equation}
 donde $\alpha \in [0, 1]$ controla la contribución relativa de cada componente. Esta formulación se extiende naturalmente a un vector de pesos $\boldsymbol{\alpha} = (\alpha_1, \alpha_2, \ldots, \alpha_M)$ cuando se combinan $M$ señales de recomendación, sujeto a $\sum_{m=1}^{M} \alpha_m = 1$.
 
@@ -129,12 +129,11 @@ La determinación de los pesos óptimos constituye en sí un problema de optimiz
 
 Dos desafíos fundamentales afectan el rendimiento de los SR, particularmente relevantes en el dominio turístico \citep{sarkar_tourism_2023}: el \textit{cold-start} y la dispersión de la matriz de utilidad. La primera se manifiesta en dos variantes:
 \begin{itemize}
-    \item \textbf{De usuario}: usuarios nuevos sin historial de calificaciones, para los cuales el FC no puede calcular similitudes. El FBC puede mitigar este problema si se dispone de información demográfica o preferencias explícitas iniciales.
-    \item \textbf{De ítem}: ítems nuevos sin calificaciones, invisibles para el FC. En este trabajo, el pipeline de ABSA permite generar un perfil de aspectos para un nuevo Pueblo Mágico a partir de sus reseñas textuales, habilitando recomendaciones basadas en contenido sin historial de calificaciones numéricas.
+	\item \textbf{De usuario}: usuarios nuevos sin historial de calificaciones, para los cuales el FC no puede calcular similitudes. El FBC puede mitigar este problema si se dispone de información demográfica o preferencias explícitas iniciales.
+	\item \textbf{De ítem}: ítems nuevos sin calificaciones, invisibles para el FC. En este trabajo, el pipeline de ABSA permite generar un perfil de aspectos para un nuevo Pueblo Mágico a partir de sus reseñas textuales, habilitando recomendaciones basadas en contenido sin historial de calificaciones numéricas.
 \end{itemize}
 
 La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha calificado, en promedio, menos de $5$ de los $48$ pueblos disponibles. Este nivel de dispersión degrada significativamente el rendimiento de los métodos basados en memoria, ya que la cantidad de ítems co-calificados entre pares de usuarios ($|\mathcal{I}_{uv}|$) tiende a ser pequeña, resultando en estimaciones de similitud poco confiables \citep{raza_comprehensive_2025}. Las principales estrategias de mitigación incluyen: (i)~factorización matricial, que generaliza patrones a partir de factores latentes aun con matrices dispersas; (ii)~incorporación de información lateral (\textit{side information}), como las reseñas textuales; y (iii)~sistemas híbridos que combinan señales complementarias \citep{payandenick_multi-criteria_2025}.
-
 
 %% ============================================================
 %% 2.2  PROCESAMIENTO DE LENGUAJE NATURAL
@@ -157,7 +156,6 @@ La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha 
 % Multi-head attention, codificación posicional.
 % Modelos pre-entrenados y fine-tuning para tareas downstream.
 % Transfer learning: ventaja en dominios con datos etiquetados escasos (como turismo en español).
-
 
 %% ============================================================
 %% 2.3  ANÁLISIS DE SENTIMIENTOS BASADO EN ASPECTOS (ABSA)
@@ -194,7 +192,6 @@ La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha 
 %   - Pre-entrenado en ~500M tweets en español.
 %   - Fine-tuned para clasificación de sentimiento (POS, NEG, NEU).
 % Pipeline: texto → segmentación en chunks → clasificación de aspecto (Zero-Shot) → clasificación de sentimiento → agregación.
-
 
 %% ============================================================
 %% 2.4  OPTIMIZACIÓN METAHEURÍSTICA
@@ -233,7 +230,6 @@ La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha 
 % Selección greedy: x_i(t+1) = u_i si f(u_i) ≥ f(x_i(t)), else x_i(t).
 % Variantes: DE/rand/1, DE/best/1, DE/current-to-best/1.
 
-
 %% ============================================================
 %% 2.5  MÉTRICAS DE EVALUACIÓN
 %% ============================================================
@@ -269,7 +265,6 @@ La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha 
 \subsubsection{Cobertura}
 % Catalog coverage = |{ítems recomendados al menos una vez}| / |I|
 % Relevante dado el desbalance geográfico del dataset (algunos pueblos con muchas más reseñas).
-
 
 %% ============================================================
 %% 2.6  EXPLICABILIDAD EN SISTEMAS DE RECOMENDACIÓN
