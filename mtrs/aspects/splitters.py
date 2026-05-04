@@ -9,7 +9,7 @@ except LookupError:
     nltk.download("punkt_tab", quiet=True)
 
 
-def split_review_punkt(text: str, max_len: int = 400) -> list[str]:
+def split_review_punkt(text: str, max_len: int = 400, min_len=10) -> list[str]:
     """
     Segmenta un texto en oraciones utilizando el tokenizador de NLTK.
     Si una oración excede `max_len`, realiza un fallback a segmentación por caracteres.
@@ -21,7 +21,8 @@ def split_review_punkt(text: str, max_len: int = 400) -> list[str]:
         s = s.strip()
         if not s:
             continue
-
+        if len(s) <= min_len:
+            continue
         if len(s) <= max_len:
             result.append(s)
         else:
