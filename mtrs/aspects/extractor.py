@@ -119,35 +119,28 @@ class AspectSentimentExtractor:
                 continue
 
             sentences = group["sentence"].tolist()
-            n_sentences = len(sentences)
-            logger.info(f"[{tipo}] Procesando {n_sentences:,} fragmentos.")
+            logger.info(f"[{tipo}] Procesando {len(sentences):,} fragmentos.")
 
-            aspect_out, sentiment_out = [], []
+            # ZeroShotClassificationPipeline es ChunkPipeline: gestiona el batching
+            # internamente (batch_size controla pares NLI, no oraciones externas).
+            aspect_res = self.aspect_classifier(
+                sentences,
+                candidate_labels=labels,
+                hypothesis_template=HYPOTHESIS_TEMPLATE,
+                multi_label=True,
+                batch_size=batch_size,
+            )
+            aspect_out = aspect_res if isinstance(aspect_res, list) else [aspect_res]
 
-            # Inferencia batcheada para Aspectos
-            for i in tqdm(range(0, n_sentences, batch_size), desc=f"{tipo} - Aspectos"):
-                batch = sentences[i : i + batch_size]
-                res = self.aspect_classifier(
-                    batch,
-                    candidate_labels=labels,
-                    hypothesis_template=HYPOTHESIS_TEMPLATE,
-                    multi_label=True,
-                    batch_size=batch_size,
-                )
-                aspect_out.extend(res if isinstance(res, list) else [res])
-
-            # Inferencia batcheada para Sentimiento
-            for i in tqdm(
-                range(0, n_sentences, batch_size), desc=f"{tipo} - Sentimiento"
-            ):
-                batch = sentences[i : i + batch_size]
-                res = self.sentiment_classifier(batch, top_k=1, batch_size=batch_size)
-                # Manejo riguroso de la estructura de salida de text-classification
-                if isinstance(res, dict):
-                    res = [[res]]
-                elif isinstance(res, list) and res and not isinstance(res[0], list):
-                    res = [res]
-                sentiment_out.extend(res)
+            sentiment_res = self.sentiment_classifier(
+                sentences, top_k=1, batch_size=batch_size
+            )
+            if isinstance(sentiment_res, dict):
+                sentiment_out = [[sentiment_res]]
+            elif isinstance(sentiment_res, list) and sentiment_res and not isinstance(sentiment_res[0], list):
+                sentiment_out = [[item] for item in sentiment_res]
+            else:
+                sentiment_out = sentiment_res
 
             # Asignación de resultados vectorizada
             group = group.copy()
