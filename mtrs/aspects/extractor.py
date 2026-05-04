@@ -10,7 +10,6 @@ from transformers import (
     TextClassificationPipeline,
     RobertaForSequenceClassification,
     AutoTokenizer,
-    ElectraTokenizerFast,
 )
 
 from .config import (
@@ -41,7 +40,7 @@ class AspectSentimentExtractor:
         logger.info(f"Inicializando modelos en dispositivo: {device}")
 
         # Pipeline de Aspectos (Zero-Shot)
-        aspect_tokenizer = ElectraTokenizerFast.from_pretrained(
+        aspect_tokenizer = AutoTokenizer.from_pretrained(
             ASPECT_MODEL_NAME, strip_accents=False
         )
         self.aspect_classifier: ZeroShotClassificationPipeline = pipeline(
