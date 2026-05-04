@@ -152,12 +152,21 @@ class AspectSentimentExtractor:
 
             # Asignación de resultados vectorizada
             group = group.copy()
-            group["aspect"] = [r["labels"][0] for r in aspect_out]
-            group["aspect_score"] = [r["scores"][0] for r in aspect_out]
-            group["sentiment"] = [r[0]["label"] for r in sentiment_out]
-            group["sentiment_score"] = [r[0]["score"] for r in sentiment_out]
+            expanded = []
+            for row_idx, (df_idx, row) in enumerate(group.iterrows()):
+                sentiment = sentiment_out[row_idx][0]
+                for label, score in zip(aspect_out[row_idx]["labels"], aspect_out[row_idx]["scores"]):
+                    if score >= 0.5:
+                        expanded.append({
+                            **row.to_dict(),
+                            "aspect": label,
+                            "aspect_score": score,
+                            "sentiment": sentiment["label"],
+                            "sentiment_score": sentiment["score"],
+                        })
 
-            group = group[group["aspect_score"] >= 0.5]
-            frames.append(group)
+            if expanded:
+                frames.append(pd.DataFrame(expanded))
+
 
         return pd.concat(frames, ignore_index=True)
