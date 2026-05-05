@@ -29,7 +29,7 @@ def split_review_punkt(text: str, max_len: int = 400, min_len=10) -> list[str]:
             # Fallback a split por caracteres para sentencias atípicamente largas
             for i in range(0, len(s), max_len):
                 sub = s[i : i + max_len].strip()
-                if sub:
+                if len(sub) > min_len:
                     result.append(sub)
 
     return result
