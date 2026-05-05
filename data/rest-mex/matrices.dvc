@@ -1,6 +1,6 @@
 outs:
-- md5: 79b1e615d6b3aa3dc9936df62b8300fd.dir
-  size: 2438417
-  nfiles: 16
+- md5: 02c5385f0e4b23d69ff9002f4b3179fd.dir
+  size: 3088021
+  nfiles: 20
   hash: md5
   path: matrices
