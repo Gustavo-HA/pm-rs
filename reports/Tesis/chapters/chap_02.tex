@@ -7,44 +7,55 @@ En este capítulo se presentan los fundamentos teóricos que sustentan el desarr
 %% ============================================================
 \section{Sistemas de recomendación} \label{sec:recsys}
 
-Un sistema de recomendación (SR) es un sistema de filtrado de información diseñado para predecir la preferencia o utilidad que un usuario asignaría a un ítem con el cual no ha interactuado previamente \citep{raza_comprehensive_2025}. Formalmente, el problema se define como la estimación de una función de utilidad:
+Un sistema de recomendación (SR) es un sistema de filtrado de información diseñado para predecir una puntuación que refleje la experiencia real de un usuario con respecto a un ítem con el cual no ha interactuado previamente. Formalmente, el problema se define como la estimación de una función de utilidad:
 \begin{equation} \label{eq:utility}
-	\hat{r}_{ui} = f(u, i; \Theta)
+	\hat{r}_{u,i} = f(u, i; \Theta)
 \end{equation}
-donde $u \in \mathcal{U}$ representa un usuario, $i \in \mathcal{I}$ un ítem, $\Theta$ los parámetros del modelo y $\hat{r}_{ui}$ la calificación predicha. El conjunto de interacciones observadas se organiza en una \textit{matriz de utilidad} $\mathbf{R} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{I}|}$, donde $r_{ui}$ denota la calificación que el usuario $u$ asignó al ítem $i$, y la mayoría de las entradas permanecen desconocidas \citep{adomavicius_toward_2005}.
+donde $f : \mathcal{U} \times \mathcal{I} \rightarrow \mathbb{R}$ es un escalar, $u \in \mathcal{U}$ representa un usuario, $i \in \mathcal{I}$ un ítem, $\Theta$ los parámetros del modelo y $\hat{r}_{u,i} \in \mathbb{R}$ es la puntuación que el SR asigna al item $i$ para el usuario $u$. De forma general, el conjunto de interacciones observadas $\mathcal{O} = \{(u,i) \mid a_{u,i} \neq 0\}$ se organiza en una \textit{matriz de interacciones} $\mathbf{A} \in \mathbb{R}^{|\mathcal{U}|\times|\mathcal{I}|}$, donde $a_{u,i}$ denota la interacción entre el usuario $u$ y el item $i$, y las mayoría de las entradas permanecen desconocidas \citep{adomavicius_toward_2005}.
 
-Los métodos de recomendación se clasifican tradicionalmente en tres familias: filtrado colaborativo, filtrado basado en contenido y sistemas híbridos \citep{raza_comprehensive_2025, sarkar_tourism_2023}. A continuación se formalizan cada una de estas aproximaciones.
+Además, la interacción $a_{u,i}$ entre un usuario y un ítem puede ser definida de distintas formas, siendo la más común como una \textit{calificación asignada}. La escala de la calificación varía conforme a los sistemas, la mayoría utilizan la escala 1-5 estrellas, mientras que otros pueden utilizar escalas binarias (interesado/no interesado). La interacción también puede ser definida como una \textit{retroalimentación implícita}, haciendo referencia a variables de acción por parte del usuario con respecto a un ítem \citep{oard1998implicit}. En este caso, las escalas de las interacciones pueden ser muy diversas, prácticamente, podría ser cualquier interacción usuario - ítem que funcione como señal del gusto o disgusto del usuario (e.g. tiempo de lectura en un libro, número de reproducciones de una canción, etc.).
+
+El problema de inferencia en los SR consiste en estimar $\hat{r}_{u,i}$ para todo par $(u,i) \notin \mathcal{O}$. A partir de estas predicciones, las recomendaciones para el usuario $u$ se obtienen seleccionando los $K$ ítems no visitados con mayor puntuación estimada:
+\begin{equation} \label{eq:topk}
+	\text{Top-}K(u) = \underset{i \in \mathcal{I} \setminus \mathcal{I}_u}{\operatorname{arg\,top\text{-}}K}\; \hat{r}_{u,i}
+\end{equation}
+donde $\mathcal{I}_u = \{i \in \mathcal{I} \mid a_{u,i} \neq 0\}$ es el conjunto de ítems con los que el usuario $u$ ya ha interactuado.
+
+Los SR se clasifican tradicionalmente en tres familias: filtrado colaborativo, filtrado basado en contenido y sistemas híbridos \citep{sarkar_tourism_2023}. La diferencia entre los enfoques radica en cómo se parametriza $f$ y qué información se utiliza para estimar $\Theta$. A continuación se formalizan cada una de estas aproximaciones.
 
 % --------------------------------------------------------------
 \subsection{Filtrado colaborativo} \label{subsec:cf}
 
-El filtrado colaborativo (FC) se fundamenta en la hipótesis de que usuarios con comportamientos similares en el pasado tendrán preferencias similares en el futuro \citep{raza_comprehensive_2025}. El FC no requiere información sobre las características de los ítems; opera exclusivamente sobre la matriz de interacciones $\mathbf{R}$. Los métodos de FC se dividen en dos categorías: basados en memoria y basados en modelo.
+El filtrado colaborativo (FC) se fundamenta en la hipótesis de que usuarios con comportamientos similares en el pasado tendrán preferencias similares en el futuro. El FC no requiere información sobre las características de los ítems; opera exclusivamente sobre la matriz de calificaciones $R \in \mathbb{R}^{|\mathcal{U}|\times|\mathcal{I}|}$. Los métodos de FC se dividen en dos categorías: basados en memoria y basados en modelo.
 
 \subsubsection{Basado en memoria} \label{subsubsec:cf_memory}
 
-Los métodos basados en memoria (también llamados \textit{neighborhood-based}) generan predicciones directamente a partir de las interacciones históricas, sin aprender un modelo paramétrico explícito. Se distinguen dos variantes: basado en usuarios (\textit{user-based}) y basado en ítems (\textit{item-based}).
+Los métodos basados en memoria generan predicciones directamente a partir de las interacciones históricas, sin aprender un modelo paramétrico explícito ($\Theta = \emptyset$). Se distinguen dos variantes: basado en usuarios y basado en ítems.
 
-\paragraph{FC basado en usuarios.}
-La predicción para un usuario $u$ sobre un ítem $i$ se calcula como el promedio ponderado de las calificaciones de los usuarios más similares a $u$ que han calificado el ítem $i$:
-\begin{equation} \label{eq:user_cf}
-	\hat{r}_{ui} = \bar{r}_u + \frac{\displaystyle\sum_{v \in \mathcal{N}_k(u)} \mathrm{sim}(u, v) \cdot (r_{vi} - \bar{r}_v)}{\displaystyle\sum_{v \in \mathcal{N}_k(u)} |\mathrm{sim}(u, v)|}
-\end{equation}
-donde $\bar{r}_u$ es la calificación promedio del usuario $u$, $\mathcal{N}_k(u)$ denota los $k$ vecinos más similares a $u$ que han calificado el ítem $i$, y $\mathrm{sim}(u, v)$ es una medida de similitud entre usuarios. Las medidas más utilizadas son la similitud coseno y la correlación de Pearson:
-\begin{equation} \label{eq:cosine}
-	\mathrm{sim}_{\cos}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{ui} \cdot r_{vi}}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{ui}^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} r_{vi}^2}}
-\end{equation}
+\begin{itemize}
+	\item \textbf{FC basado en usuarios.}
+	      La predicción para un usuario $u$ sobre un ítem $i$ se calcula como el promedio ponderado de las calificaciones de los usuarios más similares a $u$ que han calificado el ítem $i$:
+	      \begin{equation} \label{eq:user_cf}
+		      \hat{r}_{u,i} = \bar{r}_u + \frac{\displaystyle\sum_{v \in \mathcal{N}_k(u)} \mathrm{sim}(u, v) \cdot (r_{v,i} - \bar{r}_v)}{\displaystyle\sum_{v \in \mathcal{N}_k(u)} |\mathrm{sim}(u, v)|}
+	      \end{equation}
+	      donde $\bar{r}_u$ es la calificación promedio del usuario $u$, $\mathcal{N}_k(u)$ denota los $k$ vecinos más similares a $u$ que han calificado el ítem $i$, y $\mathrm{sim}(u, v)$ es una medida de similitud entre usuarios. Las medidas más utilizadas son la similitud coseno (Eq. \ref{eq:cosine}) y la correlación de Pearson (Eq. \ref{eq:pearson}):
+	      \begin{equation} \label{eq:cosine}
+		      \mathrm{sim}_{\cos}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{u,v}} r_{u,i} \cdot r_{v,i}}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{u,v}} r_{u,i}^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{u,v}} r_{v,i}^2}}
+	      \end{equation}
 
-\begin{equation} \label{eq:pearson}
-	\mathrm{sim}_{\mathrm{Pearson}}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{ui} - \bar{r}_u)(r_{vi} - \bar{r}_v)}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{ui} - \bar{r}_u)^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{uv}} (r_{vi} - \bar{r}_v)^2}}
-\end{equation}
-donde $\mathcal{I}_{uv} = \{i \in \mathcal{I} \mid r_{ui} \neq 0 \land r_{vi} \neq 0\}$ es el conjunto de ítems co-calificados por ambos usuarios.
+	      \begin{equation} \label{eq:pearson}
+		      \mathrm{sim}_{\mathrm{Pearson}}(u, v) = \frac{\displaystyle\sum_{i \in \mathcal{I}_{u,v}} (r_{u,i} - \bar{r}_u)(r_{v,i} - \bar{r}_v)}{\sqrt{\displaystyle\sum_{i \in \mathcal{I}_{u,v}} (r_{u,i} - \bar{r}_u)^2} \cdot \sqrt{\displaystyle\sum_{i \in \mathcal{I}_{u,v}} (r_{v,i} - \bar{r}_v)^2}}
+	      \end{equation}
+	      donde $\mathcal{I}_{uv} = \{i \in \mathcal{I} \mid r_{ui} \neq 0 \land r_{vi} \neq 0\}$ es el conjunto de ítems co-calificados por ambos usuarios.
 
-\paragraph{FC basado en ítems.}
-De manera análoga, la similitud se calcula entre ítems en lugar de entre usuarios. La predicción se obtiene como \citep{linden_amazon_2003}:
-\begin{equation} \label{eq:item_cf}
-	\hat{r}_{ui} = \frac{\displaystyle\sum_{j \in \mathcal{N}_k(i)} \mathrm{sim}(i, j) \cdot r_{uj}}{\displaystyle\sum_{j \in \mathcal{N}_k(i)} |\mathrm{sim}(i, j)|}
-\end{equation}
-donde $\mathcal{N}_k(i)$ son los $k$ ítems más similares a $i$ que el usuario $u$ ha calificado. Este enfoque tiende a ser más escalable que el basado en usuarios cuando $|\mathcal{U}| \gg |\mathcal{I}|$, ya que las similitudes entre ítems son más estables en el tiempo.
+	\item \textbf{FC basado en ítems.}
+	      De manera análoga, la similitud se calcula entre ítems en lugar de entre usuarios. La predicción se obtiene como:
+	      \begin{equation} \label{eq:item_cf}
+		      \hat{r}_{ui} = \frac{\displaystyle\sum_{j \in \mathcal{N}_k(i)} \mathrm{sim}(i, j) \cdot r_{uj}}{\displaystyle\sum_{j \in \mathcal{N}_k(i)} |\mathrm{sim}(i, j)|}
+	      \end{equation}
+	      donde $\mathcal{N}_k(i)$ son los $k$ ítems más similares a $i$ que el usuario $u$ ha calificado. Este enfoque tiende a ser más escalable que el basado en usuarios cuando $|\mathcal{U}| \gg |\mathcal{I}|$, ya que las similitudes entre ítems son más estables en el tiempo.
+
+\end{itemize}
 
 Ambas variantes enfrentan limitaciones inherentes: la complejidad computacional para el cálculo de similitudes es $O(|\mathcal{U}|^2 \cdot |\mathcal{I}|)$ u $O(|\mathcal{I}|^2 \cdot |\mathcal{U}|)$, su rendimiento se degrada en matrices con alta dispersión, y no pueden generar recomendaciones para usuarios o ítems nuevos (este problema es conocido como \textit{cold-start}, se abordará en la sección \ref{subsec:cold_start}).
 
@@ -58,8 +69,6 @@ donde $\mathbf{P} \in \mathbb{R}^{|\mathcal{U}| \times k}$ y $\mathbf{Q} \in \ma
 \begin{equation} \label{eq:mf_pred}
 	\hat{r}_{ui} = \mathbf{p}_u^\top \mathbf{q}_i
 \end{equation}
-
-En el contexto de REST-MEX, los $k$ factores latentes podrían capturar dimensiones implícitas como la preferencia por aspectos culturales, gastronómicos o naturales de los Pueblos Mágicos, aunque su naturaleza latente impide una interpretación directa---limitación que motiva la incorporación de aspectos explícitos vía ABSA (Sección~\ref{sec:absa}).
 
 Para estimar los parámetros, se minimiza el error cuadrático regularizado sobre las interacciones observadas $\mathcal{K}$:
 \begin{equation} \label{eq:mf_loss}
@@ -84,32 +93,45 @@ Se consideran las siguientes variantes relevantes para este trabajo:
 	\item \textbf{NMF} (\textit{Non-negative Matrix Factorization}): Impone la restricción $\mathbf{P} \geq 0$, $\mathbf{Q} \geq 0$, lo que produce representaciones aditivas más interpretables, donde cada factor latente contribuye exclusivamente de forma positiva a la predicción.
 \end{itemize}
 
-En este trabajo se emplea la biblioteca Surprise \citep{surprise_hug_2020} para la implementación de los algoritmos de FC, la cual provee implementaciones de KNNBasic, KNNWithMeans, SVD, SVD++ y NMF, entre otros.
-
 % --------------------------------------------------------------
 \subsection{Filtrado basado en contenido} \label{subsec:cbf}
 
-El filtrado basado en contenido (FBC) recomienda ítems cuyas características son similares a las de ítems previamente preferidos por el usuario \citep{raza_comprehensive_2025, pazzani_content_2007}. Se construyen dos representaciones vectoriales:
+El filtrado basado en contenido (FBC) recomienda ítems cuyas características son similares a las de ítems previamente preferidos por el usuario \citep{pazzani_content_2007}. A diferencia del FC, el FBC opera sobre una descripción explícita de los atributos de los ítems y no requiere información de otros usuarios. Arquitectónicamente, un sistema de FBC se compone de tres módulos \citep{lops_content-based_2011}: (1) un \textit{analizador de contenido} que extrae características de los ítems a partir de su descripción, (2) un \textit{aprendiz de perfil} que construye y actualiza el modelo de preferencias del usuario a partir de su historial de interacciones, y (3) un \textit{componente de filtrado} que genera recomendaciones comparando el perfil del usuario con las representaciones de los ítems candidatos.
+
+\subsubsection*{Representación de ítems}
+
+Cuando los ítems se describen mediante texto no estructurado (reseñas, artículos, descripciones de productos), la representación más empleada es el \textbf{Modelo de Espacio Vectorial} (VSM) con ponderación TF-IDF \citep{lops_content-based_2011, aggarwal_recommender_2016}. Dado un corpus de $N$ documentos y un diccionario $T = \{t_1, \ldots, t_n\}$, el peso del término $t_k$ en el documento $d_j$ se define como:
+\begin{equation} \label{eq:tfidf}
+	\text{TF-IDF}(t_k, d_j) = \frac{f_{k,j}}{\max_z f_{z,j}} \cdot \log \frac{N}{n_k}
+\end{equation}
+donde $f_{k,j}$ es la frecuencia de $t_k$ en $d_j$, $\max_z f_{z,j}$ normaliza por el término más frecuente del documento, y $n_k$ es el número de documentos en los que $t_k$ aparece al menos una vez. El ítem $i$ queda representado como el vector normalizado $\boldsymbol{\phi}(i) \in \mathbb{R}^{|T|}$ de sus pesos TF-IDF. Cuando los ítems poseen atributos estructurados (e.g.\ género cinematográfico, valoración numérica por categoría, sentimiento promedio por aspecto derivado de reseñas), el perfil del ítem se construye directamente como un vector $\boldsymbol{\phi}(i) \in \mathbb{R}^d$ de $d$ características, produciendo representaciones más compactas e interpretables \citep{zhang_explicit_2014}.
+
+\subsubsection*{Perfil del usuario y predicción}
+
+El perfil del usuario $\boldsymbol{\theta}(u) \in \mathbb{R}^d$ se construye como el promedio ponderado por calificación de los perfiles de ítems con los que ha interactuado:
+\begin{equation} \label{eq:user_profile_cbf}
+	\boldsymbol{\theta}(u) = \frac{\displaystyle\sum_{i \in \mathcal{I}_u} r_{u,i} \cdot \boldsymbol{\phi}(i)}{\displaystyle\sum_{i \in \mathcal{I}_u} r_{u,i}}
+\end{equation}
+donde $r_{u,i}$ es la calificación del usuario $u$ sobre el ítem $i$ e $\mathcal{I}_u$ el conjunto de ítems con los que el usuario ha interactuado. La predicción para un par $(u, i) \notin \mathcal{O}$ se obtiene entonces mediante la similitud coseno entre ambos perfiles:
+\begin{equation} \label{eq:cbf}
+	\hat{r}_{u,i} = \mathrm{sim}\!\left(\boldsymbol{\theta}(u), \boldsymbol{\phi}(i)\right) = \frac{\boldsymbol{\theta}(u)^\top \boldsymbol{\phi}(i)}{\|\boldsymbol{\theta}(u)\| \cdot \|\boldsymbol{\phi}(i)\|}
+\end{equation}
+
+\subsubsection*{Ventajas y limitaciones}
+
+El FBC presenta ventajas estructurales sobre el FC:
 \begin{itemize}
-	\item \textbf{Perfil del ítem} $\boldsymbol{\phi}(i) \in \mathbb{R}^d$: un vector de $d$ características que describe al ítem $i$.
-	\item \textbf{Perfil del usuario} $\boldsymbol{\theta}(u) \in \mathbb{R}^d$: una agregación de los perfiles de ítems con los que el usuario ha interactuado, típicamente ponderada por las calificaciones otorgadas.
+	\item \textbf{Independencia del usuario.} Las recomendaciones se generan a partir del perfil del usuario activo sin depender de las interacciones de terceros, eliminando el problema de vecindad escasa.
+	\item \textbf{Transparencia.} Las recomendaciones pueden justificarse enumerando las características del ítem que coinciden con el perfil del usuario, a diferencia del FC que opera como caja negra.
+	\item \textbf{Cold-start de ítems.} Un ítem nuevo puede recomendarse en cuanto se disponga de su representación de características, sin requerir calificaciones previas de otros usuarios.
 \end{itemize}
 
-La predicción se obtiene mediante la similitud entre ambos perfiles:
-\begin{equation} \label{eq:cbf}
-	\hat{r}_{ui} = \mathrm{sim}\!\left(\boldsymbol{\theta}(u), \boldsymbol{\phi}(i)\right) = \frac{\boldsymbol{\theta}(u)^\top \boldsymbol{\phi}(i)}{\|\boldsymbol{\theta}(u)\| \cdot \|\boldsymbol{\phi}(i)\|}
-\end{equation}
-
-En el contexto de esta tesis, las características de los ítems no provienen de metadatos estáticos sino de las reseñas textuales, procesadas mediante análisis de sentimientos basado en aspectos (ABSA, Sección~\ref{sec:absa}). Concretamente, el perfil de un Pueblo Mágico se construye como un vector de sentimientos por aspecto:
-\begin{equation} \label{eq:item_profile}
-	\boldsymbol{\phi}(i) = \left(s_{i,1},\; s_{i,2},\; \ldots,\; s_{i,A}\right)
-\end{equation}
-donde $s_{i,a}$ es el sentimiento agregado del aspecto $a$ (e.g., \textit{servicio}, \textit{gastronomía}, \textit{naturaleza}) para el pueblo $i$, y $A$ es el número de aspectos definidos. El perfil del usuario se obtiene como el promedio ponderado de los perfiles de los pueblos que ha visitado:
-\begin{equation} \label{eq:user_profile}
-	\boldsymbol{\theta}(u) = \frac{1}{|\mathcal{I}_u|} \sum_{i \in \mathcal{I}_u} r_{ui} \cdot \boldsymbol{\phi}(i)
-\end{equation}
-
-La principal ventaja del FBC sobre el FC es su capacidad de mitigar el \textit{cold-start} de ítems: un nuevo Pueblo Mágico puede ser recomendado tan pronto como se disponga de reseñas textuales, sin necesidad de calificaciones numéricas previas. Su limitación principal es la sobre-especialización, ya que tiende a recomendar ítems similares a los ya conocidos por el usuario, reduciendo la diversidad de las recomendaciones.
+No obstante, el FBC presenta limitaciones inherentes:
+\begin{itemize}
+	\item \textbf{Sobre-especialización.} El sistema recomienda ítems similares a los ya preferidos, reduciendo la diversidad y dificultando la aparición de recomendaciones sorpresivas (\textit{serendipity}).
+	\item \textbf{Análisis de contenido limitado.} La calidad de las recomendaciones está acotada por la riqueza de la representación de características; atributos latentes o cualidades subjetivas no capturadas por los descriptores quedan fuera del alcance del modelo \citep{aggarwal_recommender_2016}.
+	\item \textbf{Cold-start de usuario.} Se requiere un número mínimo de interacciones para construir un perfil informativo; con pocas calificaciones disponibles, las predicciones son poco confiables.
+\end{itemize}
 
 % --------------------------------------------------------------
 \subsection{Sistemas híbridos} \label{subsec:hybrid}
@@ -122,12 +144,12 @@ En esta tesis se adopta una estrategia de \textbf{combinación ponderada}, donde
 \end{equation}
 donde $\alpha \in [0, 1]$ controla la contribución relativa de cada componente. Esta formulación se extiende naturalmente a un vector de pesos $\boldsymbol{\alpha} = (\alpha_1, \alpha_2, \ldots, \alpha_M)$ cuando se combinan $M$ señales de recomendación, sujeto a $\sum_{m=1}^{M} \alpha_m = 1$.
 
-La determinación de los pesos óptimos constituye en sí un problema de optimización no convexo, cuya solución se aborda mediante técnicas metaheurísticas (Sección \ref{sec:metaheuristic}). Esta aproximación---donde los aspectos y sentimientos extraídos por el componente NLP enriquecen las características del sistema colaborativo---ha demostrado ser efectiva en dominios donde la información textual complementa las calificaciones numéricas. \citep{musto_multi-criteria_2017} mostraron que un FC multi-criterio alimentado con sentimientos por aspecto extraídos automáticamente de reseñas supera tanto a algoritmos de un solo criterio como a técnicas de factorización matricial. De manera similar, \citep{zhang_explicit_2014} propusieron el \textit{Explicit Factor Model} (EFM), que integra factores explícitos (aspectos y opiniones extraídos de reseñas) con factores latentes en un modelo unificado, demostrando mejoras tanto en predicción de calificaciones como en la calidad de las explicaciones generadas.
+La determinación de los pesos óptimos constituye en sí un problema de optimización no convexo, cuya solución se aborda mediante técnicas metaheurísticas (Sección \ref{sec:metaheuristic}). Esta aproximación, donde los aspectos y sentimientos extraídos por el componente NLP enriquecen las características del sistema colaborativo, ha demostrado ser efectiva en dominios donde la información textual complementa las calificaciones numéricas. \citep{musto_multi-criteria_2017} mostraron que un FC multi-criterio alimentado con sentimientos por aspecto extraídos automáticamente de reseñas supera tanto a algoritmos de un solo criterio como a técnicas de factorización matricial. De manera similar, \citep{zhang_explicit_2014} propusieron el \textit{Explicit Factor Model} (EFM), que integra factores explícitos (aspectos y opiniones extraídos de reseñas) con factores latentes en un modelo unificado, demostrando mejoras tanto en predicción de calificaciones como en la calidad de las explicaciones generadas.
 
 % --------------------------------------------------------------
 \subsection{Problema del arranque en frío y dispersión} \label{subsec:cold_start}
 
-Dos desafíos fundamentales afectan el rendimiento de los SR, particularmente relevantes en el dominio turístico \citep{sarkar_tourism_2023}: el \textit{cold-start} y la dispersión de la matriz de utilidad. La primera se manifiesta en dos variantes:
+Dos desafíos fundamentales afectan el rendimiento de los SR, particularmente relevantes en el dominio turístico \citep{sarkar_tourism_2023}: el \textit{cold-start} y la dispersión de la matriz de interacciones. La primera se manifiesta en dos variantes:
 \begin{itemize}
 	\item \textbf{De usuario}: usuarios nuevos sin historial de calificaciones, para los cuales el FC no puede calcular similitudes. El FBC puede mitigar este problema si se dispone de información demográfica o preferencias explícitas iniciales.
 	\item \textbf{De ítem}: ítems nuevos sin calificaciones, invisibles para el FC. En este trabajo, el pipeline de ABSA permite generar un perfil de aspectos para un nuevo Pueblo Mágico a partir de sus reseñas textuales, habilitando recomendaciones basadas en contenido sin historial de calificaciones numéricas.
