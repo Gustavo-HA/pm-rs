@@ -1,0 +1,73 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage{forest}
+
+\begin{document}
+
+\begin{forest}
+	for tree={
+	draw=red,
+	line width=0.5pt,
+	font=\small\rmfamily,
+	grow=east,
+	parent anchor=east,
+	child anchor=west,
+	edge={draw, semithick},
+	% Alineación en el eje X (columnas perfectas)
+	tier/.option=level,
+	% Configuración de la caja: altura variable por defecto al fijar el ancho
+	align=center,
+	inner sep=5pt,
+	l sep=40pt,
+	s sep=10pt,
+	% Conexiones ortogonales (Manhattan style)
+	edge path={
+			\noexpand\path[\forestoption{edge}]
+			(!u.parent anchor) -- +(15pt,0) |- (.child anchor)\forestoption{edge label};
+		},
+	},
+	% Hook para fijar la dimensión X y dejar libre la dimensión Y
+	before typesetting nodes={
+			for tree={
+					% Se definen los anchos fijos por nivel de profundidad (level)
+					if level=0{text width=1.5cm}{},
+					if level=1{text width=2.5cm}{},
+					if level=2{text width=4cm}{},
+					if level=3{text width=6cm}{},
+				}
+		}
+		[ABSA
+				[Single \\ ABSA Tasks
+						[Aspect Term \\ Extraction (ATE)
+							[Supervised ATE]
+								[Semi-supervised ATE]
+								[Unsupervised ATE]
+						]
+						[Aspect Category \\ Detection (ACD)
+							[Supervised ACD]
+								[Unsupervised ACD]
+						]
+						[Opinion Term \\ Extraction (OTE)
+							[Aspect Opinion \\ Co-Extraction (AOCE)]
+								[Target-oriented Opinion \\ Word Extraction (TOWE)]
+						]
+						[Aspect Sentiment \\ Classification (ASC)]
+				]
+				[Compound \\ ABSA Tasks
+						[Pair Extraction
+								[Aspect-Opinion Pair \\ Extraction (AOPE)]
+								[End-to-End ABSA \\ (E2E-ABSA)]
+								[Aspect Category \\ Sentiment Analysis (ACSA)]
+						]
+						[Triplet Extraction
+								[Aspect Sentiment Triplet \\ Extraction (ASTE)]
+								[Aspect-Category-Sentiment \\ Detection (ACSD)]
+						]
+						[Quad Extraction
+								[Aspect Sentiment \\ Quad Prediction (ASQP)]
+						]
+				]
+		]
+\end{forest}
+
+\end{document}

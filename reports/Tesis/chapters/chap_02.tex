@@ -1,6 +1,6 @@
 \chapter{Marco teórico} \label{chap:background}
 
-En este capítulo se presentan los fundamentos teóricos que sustentan el desarrollo de la metodología en este trabajo. Se abordan tres ejes principales: los sistemas de recomendación, el procesamiento de lenguaje natural con enfoque en el análisis de sentimientos basado en aspectos, y las técnicas de optimización metaheurística en las secciones \ref{sec:recsys}, \ref{sec:absa} y \ref{sec:metaheuristic}, respectivamente. Adicionalmente, en la sección \ref{sec:metrics} se discuten las métricas de evaluación, y en la sección \ref{sec:xai} los fundamentos de explicabilidad en sistemas de recomendación.
+En este capítulo se presentan los fundamentos teóricos que sustentan el desarrollo de la metodología en este trabajo. Se abordan cuatro ejes principales: los sistemas de recomendación junto con sus métricas de evaluación (Sección \ref{sec:recsys}), el análisis de sentimientos basado en aspectos como infraestructura de procesamiento de lenguaje natural y los modelos de recomendación sensibles a aspectos derivados de él (Sección \ref{sec:absa}), las técnicas de optimización metaheurística empleadas para la fusión de componentes (Sección \ref{sec:metaheuristic}), y los fundamentos de explicabilidad en sistemas de recomendación (Sección \ref{sec:xai}).
 
 %% ============================================================
 %% 2.1  SISTEMAS DE RECOMENDACIÓN
@@ -136,7 +136,23 @@ No obstante, el FBC presenta limitaciones inherentes:
 % --------------------------------------------------------------
 \subsection{Sistemas híbridos} \label{subsec:hybrid}
 
-Los sistemas híbridos combinan múltiples estrategias de recomendación para compensar las debilidades individuales de cada enfoque \citep{raza_comprehensive_2025, sarkar_tourism_2023}. \citep{burke_hybrid_2002} propuso una taxonomía ampliamente adoptada que identifica siete estrategias de hibridación: \textit{weighted}, \textit{switching}, \textit{mixed}, \textit{feature combination}, \textit{cascade}, \textit{feature augmentation} y \textit{meta-level}.
+Los sistemas híbridos combinan múltiples estrategias de recomendación para compensar las debilidades individuales de cada enfoque \citep{raza_comprehensive_2025, sarkar_tourism_2023}. \citep{burke_hybrid_2002} propuso una taxonomía ampliamente adoptada que identifica siete clases de hibridación: \textit{ponderada}, \textit{conmutación}, \textit{mixto}, \textit{combinación de características}, \textit{cascada}, \textit{aumento de características} y \textit{meta-nivel}. La revisión sistemática de \citet{cano_hybrid_2019} sobre 76 publicaciones del periodo 2005--2015 confirma la vigencia de esta taxonomía y reporta que la mayoría de los sistemas combinan FC con otra técnica, siendo la hibridación ponderada la estrategia predominante (28.9\% de los estudios) seguida por la combinación de características (15.8\%).
+
+\begin{description}
+	\item[Ponderada.] La puntuación final se obtiene mediante una combinación lineal de las predicciones de cada recomendador individual, asignando pesos que pueden ser globales, por usuario o adaptativos según retroalimentación. \citet{decampos_combining_2010} ejemplifican esta estrategia integrando un módulo de FC y otro de FBC mediante una red bayesiana cuyos parámetros condicionales actúan como factores de ponderación, alcanzando mejoras frente a cada componente individual. La sencillez de su formulación y la facilidad para ajustar la influencia relativa de cada componente explican su popularidad.
+
+	\item[Combinación de características.] Las salidas de un recomendador se incorporan como características adicionales al conjunto de datos sobre el que opera el segundo recomendador (típicamente un FBC, que explota intensivamente atributos del ítem). De esta forma, la información colaborativa se integra como una variable explicativa más, reduciendo la sensibilidad a la dispersión de la matriz original.
+
+	\item[Cascada.] El proceso de recomendación es secuencial: una primera técnica genera un conjunto preliminar de candidatos y una segunda técnica refina dicho conjunto. Es sensible al orden de aplicación de los recomendadores, ya que la segunda etapa solo opera sobre los ítems supervivientes de la primera, lo que la hace eficiente computacionalmente y robusta frente a clasificaciones imprecisas en las primeras posiciones.
+
+	\item[Conmutación.] El sistema alterna dinámicamente entre distintas técnicas de acuerdo con un criterio (e.g., confianza de la predicción, disponibilidad de datos, contexto del usuario). El recomendador de noticias DailyLearner \citep{billsus_learning_2000} ilustra esta clase: emplea un modelo CBF de corto plazo basado en clasificación por vecinos cercanos y, cuando una noticia carece de vecinos cercanos, conmuta a un modelo de largo plazo basado en un clasificador Naive Bayes que captura las preferencias generales del usuario.
+
+	\item[Aumento de características.] Una técnica genera predicciones o clasificaciones que enriquecen las características procesadas por la segunda. A diferencia de \textit{feature combination}, los datos originales del segundo recomendador no se modifican; en su lugar, se le añaden atributos sintéticos. Libra \citep{mooney_content-based_2000} es un recomendador de libros basado en contenido que aumenta las características textuales con los campos ``autores relacionados'' y ``títulos relacionados'' obtenidos del recomendador colaborativo de Amazon, mejorando así la calidad sin modificar el clasificador Naive Bayes subyacente.
+
+	\item[Meta-nivel.] El modelo aprendido por la primera técnica se utiliza íntegramente como entrada de la segunda. La distinción respecto al aumento de características es que aquí no se transfieren atributos individuales, sino una representación compacta del modelo. Fab \citep{balabanovic_fab_1997}, uno de los primeros recomendadores web, construye perfiles vectoriales de usuario con un componente CBF que luego son consumidos por agentes colaborativos para identificar comunidades de intereses afines.
+
+	\item[Mixto.] Las listas de recomendaciones generadas por cada técnica se presentan simultáneamente al usuario, sin ser fusionadas en una única puntuación. Es la forma más simple de hibridación y resulta apropiada cuando se dispone de múltiples recomendadores complementarios. PTV \citep{smyth_personalised_2000}, un sistema de recomendación de programación televisiva, presenta de manera conjunta los resultados de un módulo CBF basado en perfiles de programa y un módulo FC basado en similitud entre usuarios.
+\end{description}
 
 En esta tesis se adopta una estrategia de \textbf{combinación ponderada}, donde la predicción final es una combinación lineal convexa de las predicciones de los componentes colaborativo y basado en contenido:
 \begin{equation} \label{eq:hybrid}
@@ -149,7 +165,7 @@ La determinación de los pesos óptimos constituye en sí un problema de optimiz
 % --------------------------------------------------------------
 \subsection{Problema del arranque en frío y dispersión} \label{subsec:cold_start}
 
-Dos desafíos fundamentales afectan el rendimiento de los SR, particularmente relevantes en el dominio turístico \citep{sarkar_tourism_2023}: el \textit{cold-start} y la dispersión de la matriz de interacciones. La primera se manifiesta en dos variantes:
+Dos desafíos fundamentales afectan el rendimiento de los SR, particularmente relevantes en el dominio turístico \citep{sarkar_tourism_2023}: el arranque en frío y la dispersión de la matriz de interacciones. La primera se manifiesta en dos variantes:
 \begin{itemize}
 	\item \textbf{De usuario}: usuarios nuevos sin historial de calificaciones, para los cuales el FC no puede calcular similitudes. El FBC puede mitigar este problema si se dispone de información demográfica o preferencias explícitas iniciales.
 	\item \textbf{De ítem}: ítems nuevos sin calificaciones, invisibles para el FC. En este trabajo, el pipeline de ABSA permite generar un perfil de aspectos para un nuevo Pueblo Mágico a partir de sus reseñas textuales, habilitando recomendaciones basadas en contenido sin historial de calificaciones numéricas.
@@ -157,72 +173,193 @@ Dos desafíos fundamentales afectan el rendimiento de los SR, particularmente re
 
 La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha calificado, en promedio, menos de $5$ de los $48$ pueblos disponibles. Este nivel de dispersión degrada significativamente el rendimiento de los métodos basados en memoria, ya que la cantidad de ítems co-calificados entre pares de usuarios ($|\mathcal{I}_{uv}|$) tiende a ser pequeña, resultando en estimaciones de similitud poco confiables \citep{raza_comprehensive_2025}. Las principales estrategias de mitigación incluyen: (i)~factorización matricial, que generaliza patrones a partir de factores latentes aun con matrices dispersas; (ii)~incorporación de información lateral (\textit{side information}), como las reseñas textuales; y (iii)~sistemas híbridos que combinan señales complementarias \citep{payandenick_multi-criteria_2025}.
 
-%% ============================================================
-%% 2.2  PROCESAMIENTO DE LENGUAJE NATURAL
-%% ============================================================
-\section{Procesamiento de lenguaje natural} \label{sec:nlp}
-
-% Breve contexto: el texto de reseñas como fuente de información semántica complementaria a los ratings numéricos.
-
 % --------------------------------------------------------------
-\subsection{Representación de texto} \label{subsec:text_repr}
+%
 
-% Bag-of-Words, TF-IDF → limitaciones (pérdida de orden, alta dimensionalidad).
-% Word embeddings (Word2Vec, GloVe) → representaciones densas.
-% Embeddings contextuales (BERT, RoBERTa) → representaciones dependientes del contexto.
+\subsection{Evaluación} \label{subsec:evaluation}
 
-% --------------------------------------------------------------
-\subsection{Arquitectura Transformer} \label{subsec:transformers}
+La evaluación de un SR es un problema multifacético cuya configuración requiere decisiones explícitas sobre el tipo de experimento, los datos empleados, el protocolo de partición y el conjunto de métricas reportadas \citep{zangerle_evaluating_2022}. Tradicionalmente se distinguen tres modalidades: \textit{evaluación en línea} (despliegue del sistema sobre usuarios reales y medición de señales como CTR o tasa de conversión), \textit{estudios de usuario} (sujetos reclutados que interactúan con el sistema en un entorno controlado) y \textit{evaluación fuera de línea} (uso de un \textit{snapshot} histórico de interacciones para simular el comportamiento de los usuarios). En la práctica, la evaluación fuera de línea es predominante por su bajo costo, su reproducibilidad y la posibilidad de comparar de forma controlada múltiples configuraciones algorítmicas sobre los mismos datos. Su principal limitación es que mide la capacidad del modelo para reconstruir interacciones ya observadas, no la utilidad percibida por el usuario en un escenario real. La metodología adoptada en este trabajo es de tipo fuera de línea sobre el corpus REST-MEX descrito en el Capítulo~\ref{chap:dataset}.
 
-% Mecanismo de self-attention: Attention(Q,K,V) = softmax(QKᵀ/√d_k)V.
-% Multi-head attention, codificación posicional.
-% Modelos pre-entrenados y fine-tuning para tareas downstream.
-% Transfer learning: ventaja en dominios con datos etiquetados escasos (como turismo en español).
+\subsubsection{Separación de conjuntos de entrenamiento y prueba} \label{subsubsec:train_test_split}
+
+Toda evaluación fuera de línea requiere particionar el conjunto de interacciones $\mathcal{O}$ en un subconjunto de entrenamiento $\mathcal{O}_\text{train}$, sobre el que el SR ajusta sus parámetros, y un subconjunto de prueba $\mathcal{O}_\text{test}$, sobre el que se evalúa la capacidad predictiva. Aunque a primera vista parece una decisión secundaria, \citet{canamares_offline_2020} muestran experimentalmente que la elección del protocolo de partición puede invertir el orden relativo de dos algoritmos comparados sobre el mismo conjunto de datos, lo que convierte a esta etapa en un componente metodológico crítico. Las estrategias más empleadas en la literatura son:
+\begin{itemize}
+	\item \textbf{División aleatoria.} Cada interacción se asigna a $\mathcal{O}_\text{train}$ o $\mathcal{O}_\text{test}$ con una probabilidad fija (típicamente $80{:}20$ o $50{:}50$), eventualmente bajo un esquema de validación cruzada de $k$ pliegues. Es la opción más simple, pero ignora la dependencia temporal y permite que interacciones futuras de un usuario aparezcan en entrenamiento.
+	\item \textbf{Leave-$\ell$-out por usuario.} Para cada usuario con al menos $\ell$ interacciones, se reservan $\ell$ aleatoriamente para prueba. Garantiza que todo usuario participe en la evaluación; el caso $\ell = 1$ se conoce como \textit{leave-one-out}.
+	\item \textbf{Asignación por ítem.} Se reserva un número fijo de calificaciones por ítem para entrenamiento, mitigando el sesgo de popularidad que se produce cuando los ítems con muchas calificaciones también tienden a tener muchas en el conjunto de prueba.
+	\item \textbf{División temporal.} Las interacciones se ordenan por su \textit{timestamp} y se asignan las más antiguas a $\mathcal{O}_\text{train}$ y las más recientes a $\mathcal{O}_\text{test}$, ya sea con un punto de corte global o por usuario. Esta estrategia es la única que reproduce el escenario realista en el que el SR predice interacciones futuras a partir de información estrictamente pasada, evitando la fuga temporal de información.
+\end{itemize}
+
+En esta tesis se adopta una estrategia \textit{last-month-out} por usuario: para cada $u \in \mathcal{U}$, las reseñas correspondientes al último mes en el que registró actividad se asignan a $\mathcal{O}_\text{test}$ y el resto a $\mathcal{O}_\text{train}$. Esta variante combina las garantías del \textit{leave-$\ell$-out} (todo usuario con suficiente historial es evaluado) con las de la división temporal (no se filtra información futura hacia el modelo), y resulta consistente con la naturaleza estacional de las visitas turísticas a los Pueblos Mágicos.
+
+\subsubsection{Métricas} \label{sec:metrics}
+
+La evaluación de un SR Top-$K$ no se reduce a la fidelidad numérica de la predicción de calificaciones (RMSE, MAE), pues estas métricas no reflejan la calidad del ordenamiento que el usuario realmente percibe. Por ello, las métricas dominantes en la literatura actual operan sobre la lista recomendada y se agrupan en al menos siete familias: precisión predictiva, predicción de uso, \textit{ranking}, novedad, diversidad, cobertura y serendipia. Una configuración de evaluación rigurosa debe reportar simultáneamente varias de estas dimensiones, ya que un SR optimizado para una métrica puede degradar otras sin que ello sea evidente en una evaluación unidimensional.
+
+Sea $\mathcal{R}_u^K = (i_1, \ldots, i_K)$ la lista de los $K$ ítems con mayor puntuación predicha para el usuario $u$ que no pertenecen a $\mathcal{I}_u$, y sea $\text{Rel}(u) \subseteq \mathcal{I}$ el conjunto de ítems considerados relevantes para $u$ en $\mathcal{O}_\text{test}$ (típicamente, aquellos con calificación $r_{u,i} \geq \tau$ para un umbral $\tau$, e.g.\ $\tau = 4$ en la escala de 1--5).
+
+\subsubsection{Métricas de ranking} \label{subsubsec:ranking_metrics}
+
+\paragraph{Precision@K y Recall@K}
+La \textit{precisión} a profundidad $K$ es la fracción de ítems recomendados que son relevantes, mientras que la \textit{exhaustividad} (\textit{recall}) mide la fracción de ítems relevantes que el sistema logra recuperar entre los primeros $K$:
+\begin{equation} \label{eq:precision_recall}
+	\text{P@}K(u) = \frac{|\mathcal{R}_u^K \cap \text{Rel}(u)|}{K}, \qquad \text{R@}K(u) = \frac{|\mathcal{R}_u^K \cap \text{Rel}(u)|}{|\text{Rel}(u)|}.
+\end{equation}
+Ambas se promedian sobre el conjunto de usuarios. Existe un compromiso natural entre ambas: aumentar $K$ incrementa $\text{R@}K$ a costa de $\text{P@}K$, pues los ítems añadidos al final de la lista tienden a ser menos relevantes.
+
+\paragraph{NDCG@K}
+La \textit{Normalized Discounted Cumulative Gain} pondera la posición del ítem en la lista, penalizando los ítems relevantes que aparezcan en posiciones bajas:
+\begin{equation} \label{eq:dcg}
+	\text{DCG@}K(u) = \sum_{i=1}^{K} \frac{2^{\text{rel}_i} - 1}{\log_2(i+1)}, \qquad \text{NDCG@}K(u) = \frac{\text{DCG@}K(u)}{\text{IDCG@}K(u)},
+\end{equation}
+donde $\text{rel}_i$ es la relevancia del ítem en la $i$-ésima posición y $\text{IDCG@}K(u)$ es el DCG del ordenamiento ideal sobre los ítems de prueba del usuario, lo que normaliza el valor al intervalo $[0, 1]$. Cuando las calificaciones se emplean como juicios graduados, la transformación $g(r) = 2^{r}-1$ amplifica la contribución de las calificaciones altas frente a las moderadas. NDCG@$K$ es la métrica principal de optimización en esta tesis por dos motivos: (i)~es sensible al orden, lo que se alinea con el carácter de \textit{ranking} de la tarea; y (ii)~es la métrica más reportada en la literatura de SR turísticos, lo que facilita la comparación con trabajos relacionados.
+
+\paragraph{MRR (Mean Reciprocal Rank)}
+El \textit{rango recíproco medio} mide qué tan arriba aparece el primer ítem relevante en la lista recomendada:
+\begin{equation} \label{eq:mrr}
+	\text{MRR} = \frac{1}{|\mathcal{U}|} \sum_{u \in \mathcal{U}} \frac{1}{\text{rank}_u},
+\end{equation}
+donde $\text{rank}_u$ es la posición del primer ítem de $\text{Rel}(u)$ en $\mathcal{R}_u^K$ (con $1/\text{rank}_u = 0$ si ningún ítem relevante aparece en los primeros $K$). MRR es informativa cuando solo el primer acierto importa, pero ignora el resto de la lista.
+
+\subsubsection{Métricas beyond-accuracy} \label{subsubsec:beyond_accuracy}
+
+\paragraph{Diversidad}
+La \textit{intra-list diversity} (ILD) mide la disimilitud promedio entre pares de ítems dentro de una misma lista recomendada:
+\begin{equation} \label{eq:ild}
+	\text{ILD}(\mathcal{R}_u^K) = \frac{2}{K(K-1)} \sum_{1 \leq i < j \leq K} \bigl(1 - \mathrm{sim}(\boldsymbol{\phi}(i), \boldsymbol{\phi}(j))\bigr),
+\end{equation}
+donde $\mathrm{sim}(\cdot, \cdot)$ es típicamente la similitud coseno sobre representaciones de ítems. En el contexto turístico, esta métrica es especialmente relevante para evitar recomendar $K$ pueblos pertenecientes al mismo estado o categoría, lo que reduciría el valor experiencial de la recomendación.
+
+\paragraph{Cobertura}
+La \textit{cobertura de catálogo} cuantifica la fracción de ítems del sistema que aparecen al menos una vez en alguna recomendación:
+\begin{equation} \label{eq:coverage}
+	\text{Coverage} = \frac{|\bigcup_{u \in \mathcal{U}} \mathcal{R}_u^K|}{|\mathcal{I}|}.
+\end{equation}
+Esta métrica es relevante dado el desbalance del dataset REST-MEX, en el que un subconjunto reducido de pueblos concentra la mayoría de las reseñas: un SR podría obtener valores aceptables de NDCG@$K$ recomendando casi exclusivamente esos pueblos populares, sacrificando la exposición del catálogo en su conjunto.
 
 %% ============================================================
-%% 2.3  ANÁLISIS DE SENTIMIENTOS BASADO EN ASPECTOS (ABSA)
+%% 2.2  ANÁLISIS DE SENTIMIENTOS BASADO EN ASPECTOS (ABSA)
 %% ============================================================
 \section{Análisis de sentimientos basado en aspectos} \label{sec:absa}
 
-% Definición formal: dado un texto t, identificar un conjunto de tuplas {(a_i, s_i)} donde a_i es un aspecto y s_i ∈ {positivo, negativo, neutro}.
-% Diferencia con análisis de sentimientos general: granularidad a nivel de aspecto, no de documento.
-% Ejemplo REST-MEX: "La comida estaba deliciosa pero el hotel tenía mal servicio"
-%   → {(gastronomía, positivo), (servicio, negativo)}.
+El texto de las reseñas constituye una fuente de información semántica complementaria a las calificaciones numéricas, y suele contener juicios diferenciados sobre múltiples atributos del ítem que la puntuación global agrega en un único escalar. El \textit{análisis de sentimientos basado en aspectos} (ABSA, por sus siglas en inglés) tiene por objeto recuperar esa estructura: dado un texto $t$, identificar un conjunto de tuplas $\{(a_k, s_k)\}_{k=1}^{K}$ donde $a_k$ denota un aspecto del ítem y $s_k$ su polaridad asociada \citep{liu_sentiment_2012, zhang_survey_2023}. A diferencia del análisis de sentimientos a nivel de documento, que atribuye una sola etiqueta $s$ a la totalidad del texto, el ABSA opera con granularidad fina y reconoce la coexistencia de juicios opuestos sobre aspectos distintos en una misma reseña.
+
+Esta sección introduce primero los fundamentos de procesamiento de lenguaje natural (NLP) que sirven de infraestructura al ABSA moderno (Sección~\ref{subsec:text_repr_transformers}), formaliza a continuación las subtareas que componen el problema (Sección~\ref{subsec:absa_subtasks}), describe los dos paradigmas empleados en este trabajo: clasificación zero-shot vía inferencia textual (Sección~\ref{subsec:zero_shot}) y clasificación supervisada de sentimiento con modelos preentrenados (Sección~\ref{subsec:sentiment_models}), y cierra con los modelos de recomendación que aprovechan las representaciones con aspectos como señal explícita (Sección~\ref{subsec:aspect_aware_rs}).
 
 % --------------------------------------------------------------
-\subsection{Subtareas del ABSA} \label{subsec:absa_subtasks}
+\subsection{Representación de texto} \label{subsec:text_repr_transformers}
 
-% Aspect Term Extraction (ATE): identificar menciones explícitas de aspectos en el texto.
-% Aspect Category Detection (ACD): asignar categorías predefinidas (e.g., servicio, gastronomía, naturaleza).
-% Aspect Sentiment Classification (ASC): determinar polaridad por aspecto.
-% En esta tesis: ACD vía Zero-Shot + ASC vía modelo de sentimiento fine-tuned.
+Las primeras representaciones empleadas en NLP discretizaban el texto mediante esquemas de \textit{bag-of-words} y ponderación TF-IDF (Eq.~\ref{eq:tfidf}), produciendo vectores de muy alta dimensionalidad y dispersos que descartaban el orden de las palabras y la ambigüedad semántica \citep{aggarwal_recommender_2016}. Los \textit{word embeddings} densos (e.g. Word2Vec \citep{mikolov_efficient_2013}, GloVe \citep{pennington2014glove}) introdujeron representaciones de baja dimensionalidad $\mathbf{e}_w \in \mathbb{R}^d$ ($d \approx 50$--$300$) entrenadas para preservar relaciones distribucionales entre palabras: vocablos que aparecen en contextos similares quedan cercanos en el espacio vectorial. No obstante, son \textit{embeddings} estáticos: una palabra ambigua como ``banco'' recibe un único vector independientemente de si la oración refiere a una entidad financiera o a un asiento. Los modelos contextuales basados en Transformer subsanan esta limitación produciendo $\mathbf{e}_{w,t} \in \mathbb{R}^d$ \emph{condicionado} al contexto $t$ en el que aparece la palabra \citep{devlin_bert_2019}.
 
-% --------------------------------------------------------------
-\subsection{Clasificación Zero-Shot} \label{subsec:zero_shot}
+La arquitectura Transformer \citep{vaswani_attention_2017} prescinde de las recurrencias secuenciales propias de las RNN y modela las dependencias entre tokens mediante un mecanismo de \textit{self-attention} escalado:
+\begin{equation} \label{eq:attention}
+	\mathrm{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \mathrm{softmax}\!\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}}\right)\mathbf{V}
+\end{equation}
+donde $\mathbf{Q} \in \mathbb{R}^{n \times d_k}$, $\mathbf{K} \in \mathbb{R}^{n \times d_k}$ y $\mathbf{V} \in \mathbb{R}^{n \times d_v}$ son proyecciones lineales aprendidas de la entrada (\textit{queries}, \textit{keys}, \textit{values}) sobre los $n$ tokens de la secuencia, y $\sqrt{d_k}$ es un factor de escala que estabiliza los gradientes. La operación se aplica en paralelo en múltiples \textit{heads} (\textit{multi-head attention}), permitiendo capturar relaciones de tipos heterogéneos. Como la atención es invariante a permutaciones, se añaden \textit{embeddings} posicionales para inyectar el orden de la secuencia.
 
-% Paradigma: clasificar sin ejemplos etiquetados para las clases objetivo.
-% Basado en Natural Language Inference (NLI): premisa=texto, hipótesis="Este texto habla sobre {aspecto}".
-% Modelo utilizado: Recognai/zeroshot_selectra_medium (SELECTRA, entrenado en español).
-% Ventaja: no requiere datos etiquetados específicos del dominio turístico para aspectos.
-% Limitación: dependencia de la formulación de las hipótesis y del conjunto de labels candidatos.
+Modelos como BERT \citep{devlin_bert_2019} y RoBERTa \citep{liu2019roberta} preentrenan apilamientos profundos de bloques Transformer sobre corpora masivos en la tarea de \textit{masked language modeling} (MLM). Una consecuencia de este enfoque es que los \textit{embeddings} de palabras aprendidos durante el preentrenamiento son transferibles a tareas \textit{downstream} realizando un ajuste fino adicional. A este paradigma se le conoce como \textit{transfer learning} y ha establecido el estado del arte en prácticamente todas las subtareas del ABSA \citep{zhang_survey_2023, do_deep_2019} y resulta especialmente ventajoso en dominios con escasos datos etiquetados, como el turismo en español.
 
 % --------------------------------------------------------------
-\subsection{Análisis de sentimientos con modelos pre-entrenados} \label{subsec:sentiment_models}
+\subsection{Definición formal y subtareas del ABSA} \label{subsec:absa_subtasks}
 
-% Modelos para español: BETO, RoBERTuito, MarIA.
-% Modelo utilizado: pysentimiento/robertuito-sentiment-analysis.
-%   - Pre-entrenado en ~500M tweets en español.
-%   - Fine-tuned para clasificación de sentimiento (POS, NEG, NEU).
-% Pipeline: texto → segmentación en chunks → clasificación de aspecto (Zero-Shot) → clasificación de sentimiento → agregación.
+Siguiendo a \citet{zhang_survey_2023}, el ABSA se articula en torno a cuatro elementos de sentimiento: la \textit{categoría de aspecto} $c \in \mathcal{C}$ (clase predefinida del aspecto, e.g., \texttt{comida}, \texttt{servicio}), el \textit{término de aspecto} $a$ (mención explícita en el texto, e.g., ``\textit{pizza}'' como instancia de \texttt{comida}), el \textit{término de opinión} $o$ (expresión que vehicula el juicio, e.g., ``\textit{deliciosa}'') y la \textit{polaridad} $p \in \{\textsc{pos}, \textsc{neu}, \textsc{neg}\}$ (o, en escalas de granularidad fina, $p \in \{1, \ldots, 5\}$). Las distintas combinaciones de elementos definen tareas: tareas \textit{simples} predicen un único elemento (e.g., extracción del término de aspecto, ATE), mientras que tareas \textit{compuestas} predicen tuplas $(a, p)$, $(c, p)$, $(a, o, p)$ o el cuádruple $(c, a, o, p)$ \citep{zhang_survey_2023}. En particular, las tres subtareas históricamente establecidas en SemEval \citep{pontiki_semeval_2016, do_deep_2019} son:
+\begin{itemize}
+	\item \textbf{Aspect Term Extraction (ATE).} Tarea de etiquetado a nivel de \textit{token} (típicamente con esquema BIO o similar) que identifica las menciones explícitas de aspectos en el texto. Dada la frase ``\textit{La pizza es deliciosa pero el servicio terrible.}'', se extraen $\{$\textit{pizza}, \textit{servicio}$\}$.
+	\item \textbf{Aspect Category Detection (ACD).} Clasificación multi-etiqueta del texto sobre un conjunto cerrado $\mathcal{C}$ de categorías predefinidas, dependiente del dominio. A diferencia de ATE, ACD captura aspectos \emph{implícitos} no mencionados explícitamente; por ejemplo, ``\textit{Está muy sobrevalorado y no estaba sabroso.}'' se clasifica en $\{\texttt{precio}, \texttt{comida}\}$ aunque ninguno aparezca como término.
+	\item \textbf{Aspect Sentiment Classification (ASC).} Predicción de la polaridad asociada a un aspecto dado, condicionando la clasificación al contexto aspecto-específico de la frase. Es comúnmente formulada como clasificación a nivel de oración con un par $(s, a)$ como entrada.
+\end{itemize}
+
+En la presente tesis se adopta el paradigma \textbf{ACD + ASC}: la categoría de aspecto se predice mediante clasificación zero-shot vía NLI (Sección~\ref{subsec:zero_shot}) y, condicionalmente al aspecto detectado, se aplica un clasificador de sentimiento basado en un modelo \textit{fine-tuned} sobre reseñas en español (Sección~\ref{subsec:sentiment_models}). Esta elección está motivada por dos consideraciones: (i) la ausencia de datos etiquetados a nivel de aspecto para Pueblos Mágicos hace inviables los enfoques supervisados, y (ii) el conjunto de aspectos relevantes varía entre tipos de establecimiento, lo cual se acomoda naturalmente a un esquema condicional en el que el conjunto de etiquetas candidatas se ajusta dinámicamente sin reentrenar.
+
+% --------------------------------------------------------------
+\subsection{Clasificación Zero-Shot vía NLI} \label{subsec:zero_shot}
+
+La clasificación zero-shot tiene por objetivo asignar etiquetas a un texto sin disponer de ejemplos anotados para las clases objetivo \citep{yin_benchmarking_2019}. Formalmente, se considera el escenario \textit{label-fully-unseen}: aprender un clasificador $f : \mathcal{X} \to \mathcal{Y}$ tal que $f$ no observa ningún dato etiquetado específico para las clases en $\mathcal{Y}$ durante su entrenamiento. Esta formulación es particularmente adecuada para ACD en dominios sin \textit{benchmarks} curados, ya que permite definir el conjunto de aspectos $\mathcal{C}$ post-hoc y modificarlo sin reentrenamiento.
+
+\citet{yin_benchmarking_2019} proponen tratar la clasificación zero-shot como un problema de \textit{Natural Language Inference} (NLI). La tarea de NLI es una tarea de clasificación supervisada que consiste en determinar la relación entre una premisa $t$ y una hipótesis $h$ mediante tres clases: implicación, contradicción y neutralidad \citep{maccartney2009natural}. La idea consiste en convertir cada etiqueta candidata $c \in \mathcal{C}$ en una hipótesis $h_c$ mediante una plantilla parametrizada (e.g., ``\textit{Este texto habla sobre $\{c\}$.}'') y, dada una premisa $t$ (la oración o reseña), evaluar la probabilidad de implicación usando un modelo NLI preentrenado. La etiqueta predicha es entonces:
+\begin{equation} \label{eq:zeroshot_nli}
+	\hat{c} = \arg\max_{c \in \mathcal{C}} \Pr\!\left(\text{entailment} \mid t, h_c\right)
+\end{equation}
+En el caso multi-etiqueta, se aplica un umbral $\tau$ y se devuelven $\{c \in \mathcal{C} : \Pr(\text{entailment} \mid t, h_c) > \tau\}$. Muestran que un modelo BERT ajustado finamente sobre MNLI \citep{williams_broad-coverage_2018} generaliza competitivamente a tareas de detección de aspectos no vistas, superando enfoques basados en \textit{embeddings} estáticos (Word2Vec, ESA) por márgenes significativos en clases no vistas.
+
+% --------------------------------------------------------------
+\subsection{Modelos de sentimiento preentrenados} \label{subsec:sentiment_models}
+
+La subtarea ASC se aborda en este trabajo con un modelo preentrenado y \textit{fine-tuned} sobre reseñas de viaje en español, evitando la necesidad de etiquetar manualmente un corpus específico de Pueblos Mágicos. Para el español existen varios modelos base ampliamente utilizados --- BETO, MarIA, RoBERTuito --- que difieren en el corpus de preentrenamiento (Wikipedia, BNE, Twitter) y, consecuentemente, en el dominio en el que mejor generalizan \citep{do_deep_2019}.
+
+El modelo seleccionado, \textsc{vg055/roberta-base-bne-finetuned-TripAdvisorDomain} \textsc{Adaptation}, parte de un RoBERTa-base preentrenado sobre la Biblioteca Nacional de España (BNE) y posteriormente adaptado al dominio TripAdvisor mediante \textit{fine-tuning} para clasificación de sentimiento de granularidad fina, produciendo cinco clases ordinales:
+\begin{equation*}
+	\mathcal{S} = \{\text{Muy Negativo}, \text{Negativo}, \text{Neutral}, \text{Positivo}, \text{Muy Positivo}\}
+\end{equation*}
+La granularidad de cinco clases preserva información que un esquema ternario $\{\textsc{neg}, \textsc{neu}, \textsc{pos}\}$ colapsaría --- en particular, el contraste entre satisfacción moderada y entusiasmo --- y resulta consistente con la escala de 1 a 5 estrellas del \textit{dataset} REST-MEX, lo que facilita análisis posteriores de coherencia entre $a_{u,i}$ (calificación numérica) y los sentimientos extraídos.
+
+El \textit{pipeline} ABSA productivizado en \texttt{mtrs/aspects/} ejecuta, para cada reseña $t$, los siguientes pasos:
+\begin{enumerate}[(i)]
+	\item segmentación de $t$ en fragmentos $\{t_1, \ldots, t_F\}$ mediante un \textit{splitter} basado en Punkt (con \textit{fallback} por longitud máxima de caracteres) para acomodar el límite de \textit{tokens} de los modelos Transformer;
+	\item para cada fragmento $t_f$, clasificación zero-shot multi-etiqueta sobre $\mathcal{C}_{\text{Tipo}(i)}$ aplicando la Eq.~\ref{eq:zeroshot_nli};
+	\item para cada par (fragmento, aspecto) $(t_f, c)$ con confianza superior al umbral, clasificación de sentimiento $s \in \mathcal{S}$ con el modelo RoBERTa-BNE adaptado;
+	\item agregación a nivel de reseña mediante promedio ponderado por confianza, produciendo el conjunto $\{(c_k, \bar{s}_{i,c_k})\}$ que alimenta las matrices $X$, $Y$ y $R$ definidas en la Sección~\ref{subsec:aspect_aware_rs}.
+\end{enumerate}
+
+% --------------------------------------------------------------
+\subsection{Recomendación basada en aspectos} \label{subsec:aspect_aware_rs}
+
+Una vez que el \textit{pipeline} ABSA produce, para cada par (usuario, pueblo) y reseña, un conjunto de pares (aspecto, sentimiento), se vuelve posible enriquecer las arquitecturas clásicas de SR con esta información de granularidad fina. Dos modelos dominantes en la literatura capturan distintas formas de aprovecharla y constituyen las referencias centrales de la propuesta híbrida desarrollada en el capítulo de metodología.
+
+\subsubsection{Filtrado colaborativo multicriterio (Musto et al., 2017)}
+
+\citet{musto_multi-criteria_2017} extienden el FC clásico al sustituir el escalar de calificación $r_{u,i}$ por un vector de \textit{micro-calificaciones} aspecto-específicas $\mathbf{r}_{u,i} = (r_{u,i,1}, \ldots, r_{u,i,|\mathcal{A}|})$, donde $r_{u,i,a} \in [-1, 1]$ se deriva del sentimiento promedio extraído por ABSA sobre las menciones del aspecto $a$ en las reseñas de $u$ acerca de $i$. El conjunto de interacciones queda así organizado como un tensor $\mathbf{R} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{I}| \times |\mathcal{A}|}$.
+
+La predicción se realiza por aspecto mediante FC basado en usuario sobre la rebanada $\mathbf{R}_{:,:,a}$:
+\begin{equation} \label{eq:musto_pred_aspect}
+	\hat{r}_{u,i,a} = \bar{r}_{u,a} + \frac{\displaystyle\sum_{v \in \mathcal{N}_k(u)} \mathrm{sim}_a(u, v) \cdot (r_{v,i,a} - \bar{r}_{v,a})}{\displaystyle\sum_{v \in \mathcal{N}_k(u)} |\mathrm{sim}_a(u, v)|}
+\end{equation}
+donde $\mathrm{sim}_a$ se computa en el subespacio aspecto-específico (e.g., correlación de Pearson sobre $\{(r_{u,j,a}, r_{v,j,a}) : j \in \mathcal{I}_{u,v}\}$) y $\bar{r}_{u,a}$ es la media del usuario en dicho aspecto. La predicción agregada se obtiene como el promedio (eventualmente ponderado por importancia del aspecto) sobre $\mathcal{A}$:
+\begin{equation} \label{eq:musto_agg}
+	\hat{r}_{u,i} = \frac{1}{|\mathcal{A}|} \sum_{a \in \mathcal{A}} \hat{r}_{u,i,a}
+\end{equation}
+\citet{musto_multi-criteria_2017} reportan que este esquema supera tanto al FC de criterio único como a la factorización matricial clásica en \textit{datasets} de TripAdvisor y Yelp, beneficio atribuible al hecho de que las micro-calificaciones aspectuales descomponen el ruido propio de la calificación global y exponen patrones de preferencia multidimensionales.
+
+\subsubsection{Modelo de Factores Explícitos --- EFM (Zhang et al., 2014)}
+
+\citet{zhang_explicit_2014} proponen el \textit{Explicit Factor Model} (EFM), que conjuga factores \emph{explícitos} (extraídos de ABSA) con factores latentes en una factorización unificada que produce, simultáneamente, predicción de \textit{rating} y explicabilidad. El modelo se construye sobre dos matrices derivadas del \textit{pipeline} ABSA:
+
+\begin{itemize}
+	\item \textbf{Matriz de atención del usuario} $\mathbf{X} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{A}|}$: codifica la importancia que el usuario $u$ asigna al aspecto $a$, escalando la frecuencia de mención mediante una sigmoide acotada en $[1, N]$:
+	      \begin{equation} \label{eq:efm_X}
+		      X_{u,a} = 1 + (N - 1) \left(\frac{2}{1 + \exp(-t_{u,a})} - 1\right)
+	      \end{equation}
+	      donde $t_{u,a}$ es el conteo de menciones del aspecto $a$ por parte del usuario $u$ y $N$ es el rango superior de la escala.
+
+	\item \textbf{Matriz de calidad del ítem} $\mathbf{Y} \in \mathbb{R}^{|\mathcal{I}| \times |\mathcal{A}|}$: codifica la calidad del ítem $i$ en el aspecto $a$, ponderando el sentimiento promedio $s_{i,a}$ por el volumen de menciones $t_{i,a}$:
+	      \begin{equation} \label{eq:efm_Y}
+		      Y_{i,a} = 1 + \frac{N - 1}{1 + \exp(-t_{i,a} \cdot s_{i,a})}
+	      \end{equation}
+\end{itemize}
+
+La predicción híbrida combina un término explícito --- producto interno entre la atención del usuario y la calidad del ítem en el espacio de aspectos --- con un término latente análogo al de SVD:
+\begin{equation} \label{eq:efm_pred}
+	\hat{r}_{u,i} = \alpha \cdot \frac{\mathbf{X}_u^\top \mathbf{Y}_i}{|\mathcal{A}|} + (1 - \alpha) \cdot \mathbf{p}_u^\top \mathbf{q}_i
+\end{equation}
+donde $\alpha \in [0, 1]$ regula la contribución relativa de cada término. La fortaleza estructural del EFM radica en que el componente explícito permite generar justificaciones interpretables del tipo ``\textit{se recomienda Taxco porque valoras positivamente la \texttt{cultura} y la \texttt{naturaleza}, aspectos altamente evaluados por la comunidad en este pueblo}'', conectando directamente la salida del recomendador con la representación aspectual extraída por ABSA (cf. Sección~\ref{sec:xai}). La integración de las dos referencias --- el FC multicriterio de Musto y el EFM de Zhang --- como componentes ortogonales del recomendador híbrido propuesto se desarrolla en el capítulo de metodología.
 
 %% ============================================================
-%% 2.4  OPTIMIZACIÓN METAHEURÍSTICA
+%% 2.3  OPTIMIZACIÓN METAHEURÍSTICA
 %% ============================================================
 \section{Optimización metaheurística} \label{sec:metaheuristic}
 
 % Problema: encontrar los pesos óptimos de fusión del sistema híbrido.
 % Formulación: max_{θ} f(θ), donde θ = (α, hiperparámetros del modelo) y f es una métrica de ranking (e.g., NDCG@K).
 % Espacio de búsqueda no convexo, no diferenciable → justificación de metaheurísticas.
+
+% --------------------------------------------------------------
+\subsection{Evolución diferencial} \label{subsec:de}
+
+% Operadores: mutación, cruce, selección.
+% Mutación: v_i = x_{r1} + F·(x_{r2} - x_{r3}), donde F ∈ [0,2] es el factor de escala.
+% Cruce binomial con probabilidad CR.
+% Selección greedy: x_i(t+1) = u_i si f(u_i) ≥ f(x_i(t)), else x_i(t).
+% Variantes: DE/rand/1, DE/best/1, DE/current-to-best/1.
 
 % --------------------------------------------------------------
 \subsection{Optimización por enjambre de partículas (PSO)} \label{subsec:pso}
@@ -243,53 +380,8 @@ La dispersión del $90.32\%$ en el dataset REST-MEX implica que cada usuario ha 
 % Ventaja: eficiente en evaluaciones costosas (cada evaluación requiere entrenar y evaluar el RecSys completo).
 % Ciclo: evaluar → actualizar GP → optimizar adquisición → siguiente punto.
 
-% --------------------------------------------------------------
-\subsection{Evolución diferencial} \label{subsec:de}
-
-% Operadores: mutación, cruce, selección.
-% Mutación: v_i = x_{r1} + F·(x_{r2} - x_{r3}), donde F ∈ [0,2] es el factor de escala.
-% Cruce binomial con probabilidad CR.
-% Selección greedy: x_i(t+1) = u_i si f(u_i) ≥ f(x_i(t)), else x_i(t).
-% Variantes: DE/rand/1, DE/best/1, DE/current-to-best/1.
-
 %% ============================================================
-%% 2.5  MÉTRICAS DE EVALUACIÓN
-%% ============================================================
-\section{Métricas de evaluación} \label{sec:metrics}
-
-% Contexto: evaluación de sistemas Top-K; no basta RMSE/MAE del rating prediction.
-
-% --------------------------------------------------------------
-\subsection{Métricas de ranking} \label{subsec:ranking_metrics}
-
-\subsubsection{Precision@K y Recall@K}
-% Precision@K = |{ítems relevantes en top-K}| / K
-% Recall@K = |{ítems relevantes en top-K}| / |{total ítems relevantes}|
-% Trade-off precision-recall según K.
-
-\subsubsection{NDCG@K}
-% DCG@K = Σ_{i=1}^{K} (2^{rel_i} - 1) / log₂(i+1)
-% NDCG@K = DCG@K / IDCG@K
-% Penaliza ítems relevantes en posiciones bajas del ranking.
-% Métrica principal en esta tesis.
-
-\subsubsection{MRR (Mean Reciprocal Rank)}
-% MRR = (1/|U|) Σ_{u=1}^{|U|} 1/rank_u
-% Evalúa la posición del primer ítem relevante.
-
-% --------------------------------------------------------------
-\subsection{Métricas beyond-accuracy} \label{subsec:beyond_accuracy}
-
-\subsubsection{Diversidad}
-% Intra-list diversity: ILD = (2 / K(K-1)) Σ_{i<j} dist(item_i, item_j)
-% Importancia en turismo: evitar recomendar K pueblos del mismo estado/tipo.
-
-\subsubsection{Cobertura}
-% Catalog coverage = |{ítems recomendados al menos una vez}| / |I|
-% Relevante dado el desbalance geográfico del dataset (algunos pueblos con muchas más reseñas).
-
-%% ============================================================
-%% 2.6  EXPLICABILIDAD EN SISTEMAS DE RECOMENDACIÓN
+%% 2.4  EXPLICABILIDAD EN SISTEMAS DE RECOMENDACIÓN
 %% ============================================================
 \section{Explicabilidad en sistemas de recomendación} \label{sec:xai}
 
