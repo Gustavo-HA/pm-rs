@@ -190,13 +190,14 @@ Toda evaluación fuera de línea requiere particionar el conjunto de interaccion
 	\item \textbf{División temporal.} Las interacciones se ordenan por su \textit{timestamp} y se asignan las más antiguas a $\mathcal{O}_\text{train}$ y las más recientes a $\mathcal{O}_\text{test}$, ya sea con un punto de corte global o por usuario. Esta estrategia es la única que reproduce el escenario realista en el que el SR predice interacciones futuras a partir de información estrictamente pasada, evitando la fuga temporal de información.
 \end{itemize}
 
-En esta tesis se adopta una estrategia \textit{last-month-out} por usuario: para cada $u \in \mathcal{U}$, las reseñas correspondientes al último mes en el que registró actividad se asignan a $\mathcal{O}_\text{test}$ y el resto a $\mathcal{O}_\text{train}$. Esta variante combina las garantías del \textit{leave-$\ell$-out} (todo usuario con suficiente historial es evaluado) con las de la división temporal (no se filtra información futura hacia el modelo), y resulta consistente con la naturaleza estacional de las visitas turísticas a los Pueblos Mágicos.
+% Usar esto en metodología.
+% En esta tesis se adopta una estrategia \textit{last-month-out} por usuario: para cada $u \in \mathcal{U}$, las reseñas correspondientes al último mes en el que registró actividad se asignan a $\mathcal{O}_\text{test}$ y el resto a $\mathcal{O}_\text{train}$. Esta variante combina las garantías del \textit{leave-$\ell$-out} (todo usuario con suficiente historial es evaluado) con las de la división temporal (no se filtra información futura hacia el modelo), y resulta consistente con la naturaleza estacional de las visitas turísticas a los Pueblos Mágicos.
 
 \subsubsection{Métricas} \label{sec:metrics}
 
 La evaluación de un SR Top-$K$ no se reduce a la fidelidad numérica de la predicción de calificaciones (RMSE, MAE), pues estas métricas no reflejan la calidad del ordenamiento que el usuario realmente percibe. Por ello, las métricas dominantes en la literatura actual operan sobre la lista recomendada y se agrupan en al menos siete familias: precisión predictiva, predicción de uso, \textit{ranking}, novedad, diversidad, cobertura y serendipia. Una configuración de evaluación rigurosa debe reportar simultáneamente varias de estas dimensiones, ya que un SR optimizado para una métrica puede degradar otras sin que ello sea evidente en una evaluación unidimensional.
 
-Sea $\mathcal{R}_u^K = (i_1, \ldots, i_K)$ la lista de los $K$ ítems con mayor puntuación predicha para el usuario $u$ que no pertenecen a $\mathcal{I}_u$, y sea $\text{Rel}(u) \subseteq \mathcal{I}$ el conjunto de ítems considerados relevantes para $u$ en $\mathcal{O}_\text{test}$ (típicamente, aquellos con calificación $r_{u,i} \geq \tau$ para un umbral $\tau$, e.g.\ $\tau = 4$ en la escala de 1--5).
+Sea $\mathcal{R}_u^K = (i_1, \ldots, i_K)$ la lista de los $K$ ítems con mayor puntuación predicha para el usuario $u$ que no pertenecen a $\mathcal{I}_u$, y sea $\text{Rel}(u) \subseteq \mathcal{I}$ el conjunto de ítems considerados relevantes para $u$ en $\mathcal{O}_\text{test}$.
 
 \subsubsection{Métricas de ranking} \label{subsubsec:ranking_metrics}
 
@@ -235,6 +236,7 @@ La \textit{cobertura de catálogo} cuantifica la fracción de ítems del sistema
 \begin{equation} \label{eq:coverage}
 	\text{Coverage} = \frac{|\bigcup_{u \in \mathcal{U}} \mathcal{R}_u^K|}{|\mathcal{I}|}.
 \end{equation}
+
 Esta métrica es relevante dado el desbalance del dataset REST-MEX, en el que un subconjunto reducido de pueblos concentra la mayoría de las reseñas: un SR podría obtener valores aceptables de NDCG@$K$ recomendando casi exclusivamente esos pueblos populares, sacrificando la exposición del catálogo en su conjunto.
 
 %% ============================================================
@@ -262,14 +264,21 @@ Modelos como BERT \citep{devlin_bert_2019} y RoBERTa \citep{liu2019roberta} pree
 % --------------------------------------------------------------
 \subsection{Definición formal y subtareas del ABSA} \label{subsec:absa_subtasks}
 
-Siguiendo a \citet{zhang_survey_2023}, el ABSA se articula en torno a cuatro elementos de sentimiento: la \textit{categoría de aspecto} $c \in \mathcal{C}$ (clase predefinida del aspecto, e.g., \texttt{comida}, \texttt{servicio}), el \textit{término de aspecto} $a$ (mención explícita en el texto, e.g., ``\textit{pizza}'' como instancia de \texttt{comida}), el \textit{término de opinión} $o$ (expresión que vehicula el juicio, e.g., ``\textit{deliciosa}'') y la \textit{polaridad} $p \in \{\textsc{pos}, \textsc{neu}, \textsc{neg}\}$ (o, en escalas de granularidad fina, $p \in \{1, \ldots, 5\}$). Las distintas combinaciones de elementos definen tareas: tareas \textit{simples} predicen un único elemento (e.g., extracción del término de aspecto, ATE), mientras que tareas \textit{compuestas} predicen tuplas $(a, p)$, $(c, p)$, $(a, o, p)$ o el cuádruple $(c, a, o, p)$ \citep{zhang_survey_2023}. En particular, las tres subtareas históricamente establecidas en SemEval \citep{pontiki_semeval_2016, do_deep_2019} son:
+Siguiendo a \citet{zhang_survey_2023}, el ABSA se articula en torno a cuatro elementos de sentimiento: la \textit{categoría de aspecto} $c \in \mathcal{C}$ (clase predefinida del aspecto, e.g., \texttt{comida}, \texttt{servicio}), el \textit{término de aspecto} $a$ (mención explícita en el texto, e.g., ``\textit{pizza}'' como instancia de \texttt{comida}), el \textit{término de opinión} $o$ (expresión que vehicula el juicio, e.g., ``\textit{deliciosa}'') y la \textit{polaridad} $p \in \{\textsc{pos}, \textsc{neu}, \textsc{neg}\}$ (o, en escalas de granularidad fina, $p \in \{1, \ldots, 5\}$). La figura \ref{fig:absa_tasks} muestra una taxonomía de las tareas de ABSA, donde las distintas combinaciones de elementos definen tareas: tareas \textit{simples} predicen un único elemento (e.g., extracción del término de aspecto, ATE), mientras que tareas \textit{compuestas} predicen tuplas $(a, p)$, $(c, p)$, $(a, o, p)$ o el cuádruple $(c, a, o, p)$. En particular, las tres subtareas históricamente establecidas en SemEval \citep{pontiki_semeval_2016, do_deep_2019} son:
 \begin{itemize}
 	\item \textbf{Aspect Term Extraction (ATE).} Tarea de etiquetado a nivel de \textit{token} (típicamente con esquema BIO o similar) que identifica las menciones explícitas de aspectos en el texto. Dada la frase ``\textit{La pizza es deliciosa pero el servicio terrible.}'', se extraen $\{$\textit{pizza}, \textit{servicio}$\}$.
 	\item \textbf{Aspect Category Detection (ACD).} Clasificación multi-etiqueta del texto sobre un conjunto cerrado $\mathcal{C}$ de categorías predefinidas, dependiente del dominio. A diferencia de ATE, ACD captura aspectos \emph{implícitos} no mencionados explícitamente; por ejemplo, ``\textit{Está muy sobrevalorado y no estaba sabroso.}'' se clasifica en $\{\texttt{precio}, \texttt{comida}\}$ aunque ninguno aparezca como término.
 	\item \textbf{Aspect Sentiment Classification (ASC).} Predicción de la polaridad asociada a un aspecto dado, condicionando la clasificación al contexto aspecto-específico de la frase. Es comúnmente formulada como clasificación a nivel de oración con un par $(s, a)$ como entrada.
 \end{itemize}
 
-En la presente tesis se adopta el paradigma \textbf{ACD + ASC}: la categoría de aspecto se predice mediante clasificación zero-shot vía NLI (Sección~\ref{subsec:zero_shot}) y, condicionalmente al aspecto detectado, se aplica un clasificador de sentimiento basado en un modelo \textit{fine-tuned} sobre reseñas en español (Sección~\ref{subsec:sentiment_models}). Esta elección está motivada por dos consideraciones: (i) la ausencia de datos etiquetados a nivel de aspecto para Pueblos Mágicos hace inviables los enfoques supervisados, y (ii) el conjunto de aspectos relevantes varía entre tipos de establecimiento, lo cual se acomoda naturalmente a un esquema condicional en el que el conjunto de etiquetas candidatas se ajusta dinámicamente sin reentrenar.
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{figures/absa_tasks.pdf}
+	\caption{Taxonomía de las tareas de ABSA. Reconstruido de \citet{zhang_survey_2023}.}
+	\label{fig:absa_tasks}
+\end{figure}
+
+En la presente tesis se adopta el paradigma \textbf{ACD + ASC}: la categoría de aspecto se predice mediante clasificación zero-shot vía NLI (Sección~\ref{subsec:zero_shot}) y, condicionalmente al aspecto detectado, se aplica un clasificador de sentimiento basado en un modelo con ajuste fino sobre reseñas en español (Sección~\ref{subsec:sentiment_models}). Esta elección está motivada por dos consideraciones: (i) la ausencia de datos etiquetados a nivel de aspecto para Pueblos Mágicos hace inviables los enfoques supervisados, y (ii) el conjunto de aspectos relevantes varía entre tipos de establecimiento, lo cual se acomoda naturalmente a un esquema condicional en el que el conjunto de etiquetas candidatas se ajusta dinámicamente sin reentrenar.
 
 % --------------------------------------------------------------
 \subsection{Clasificación Zero-Shot vía NLI} \label{subsec:zero_shot}
@@ -285,7 +294,7 @@ En el caso multi-etiqueta, se aplica un umbral $\tau$ y se devuelven $\{c \in \m
 % --------------------------------------------------------------
 \subsection{Modelos de sentimiento preentrenados} \label{subsec:sentiment_models}
 
-La subtarea ASC se aborda en este trabajo con un modelo preentrenado y \textit{fine-tuned} sobre reseñas de viaje en español, evitando la necesidad de etiquetar manualmente un corpus específico de Pueblos Mágicos. Para el español existen varios modelos base ampliamente utilizados --- BETO, MarIA, RoBERTuito --- que difieren en el corpus de preentrenamiento (Wikipedia, BNE, Twitter) y, consecuentemente, en el dominio en el que mejor generalizan \citep{do_deep_2019}.
+La subtarea ASC se aborda en este trabajo con un modelo preentrenado y con ajuste fino sobre reseñas de viaje en español, evitando la necesidad de etiquetar manualmente un corpus específico de Pueblos Mágicos. Para el español existen varios modelos base ampliamente utilizados --- BETO, MarIA, RoBERTuito --- que difieren en el corpus de preentrenamiento (Wikipedia, BNE, Twitter) y, consecuentemente, en el dominio en el que mejor generalizan \citep{do_deep_2019}.
 
 El modelo seleccionado, \textsc{vg055/roberta-base-bne-finetuned-TripAdvisorDomain} \textsc{Adaptation}, parte de un RoBERTa-base preentrenado sobre la Biblioteca Nacional de España (BNE) y posteriormente adaptado al dominio TripAdvisor mediante \textit{fine-tuning} para clasificación de sentimiento de granularidad fina, produciendo cinco clases ordinales:
 \begin{equation*}

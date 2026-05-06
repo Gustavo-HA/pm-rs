@@ -16,7 +16,7 @@
 	% Alineación en el eje X (columnas perfectas)
 	tier/.option=level,
 	% Configuración de la caja: altura variable por defecto al fijar el ancho
-	align=center,
+	align=left,
 	inner sep=5pt,
 	l sep=40pt,
 	s sep=10pt,
@@ -30,10 +30,10 @@
 	before typesetting nodes={
 			for tree={
 					% Se definen los anchos fijos por nivel de profundidad (level)
-					if level=0{text width=1.5cm}{},
-					if level=1{text width=2.5cm}{},
-					if level=2{text width=4cm}{},
-					if level=3{text width=6cm}{},
+					if level=0{text width=1.cm}{},
+					if level=1{text width=1.8cm}{},
+					if level=2{text width=2.9cm}{},
+					if level=3{text width=4cm}{},
 				}
 		}
 		[ABSA
