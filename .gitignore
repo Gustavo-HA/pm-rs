@@ -216,6 +216,7 @@ __marimo__/
 *.lof
 *.out
 *.toc
+*.lot
 reports/RecommendTurismo/
 
 # DVC
