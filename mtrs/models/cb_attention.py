@@ -4,7 +4,7 @@
 # la matriz de ratings A para estimar r̂_{u,p}^{att} mediante vecinos cercanos
 # en el espacio de preferencias de aspectos:
 #
-#   sim_att(u, v) = cos(X_u, X_v) = (X_u · X_v) / (‖X_u‖ · ‖X_v‖)
+#   sim_att(u, v) = 1 / (1 + ‖X_u - X_v‖₂)
 #
 #   r̂_{u,p}^{att} = μ_u + Σ_{v ∈ N_k} sim(u,v)·(A_{v,p} - μ_v)
 #                         / Σ_{v ∈ N_k} |sim(u,v)|
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import cdist
 
 from typing import Self
 
@@ -47,7 +48,7 @@ class CBAttention(BaseRecommender):
         X: pd.DataFrame,
         A: pd.DataFrame,
     ) -> Self:
-        """Precomputa la matriz de similitud coseno (m × m) sobre X.
+        """Precomputa la matriz de similitud euclidiana (m × m) sobre X.
 
         Args:
             X: DataFrame (m × p), valores en [1, 5].  Atención usuario-aspecto.
@@ -60,13 +61,11 @@ class CBAttention(BaseRecommender):
         # Alinear X con los usuarios de A
         X_aligned = X.reindex(index=self._users).fillna(1.0)
 
-        # Normalizar L2 por fila para similitud coseno
-        norms = np.linalg.norm(X_aligned.values, axis=1, keepdims=True)
-        norms = np.where(norms == 0, 1.0, norms)
-        X_norm = X_aligned.values / norms  # (m, p)
+        X_vals = X_aligned.values
 
-        # Matriz de similitud coseno completa: (m, m)
-        self._sim_matrix = (X_norm @ X_norm.T).astype(np.float32)
+        # Convertir distancia euclidiana a similitud en (0, 1]: 1/(1+d)
+        dist = cdist(X_vals, X_vals, metric="euclidean")
+        self._sim_matrix = (1.0 / (1.0 + dist)).astype(np.float32)
         np.fill_diagonal(self._sim_matrix, 0.0)  # excluir self-sim
 
         # Ratings y medias de usuario

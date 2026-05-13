@@ -192,6 +192,12 @@ def parse_args() -> argparse.Namespace:
         help="Vecinos para CFMultiCriteria / CBAttention.",
     )
     parser.add_argument(
+        "--min-sim",
+        type=float,
+        default=0.0,
+        help="Similitud mínima para CFMultiCriteria / CBAttention (default: 0.0).",
+    )
+    parser.add_argument(
         "--cf-lr", type=float, default=0.005, help="Learning rate para CFClassic."
     )
     parser.add_argument(
@@ -279,16 +285,19 @@ def main() -> None:
 
     # ── Definir modelos ──────────────────────────────────────────────────── #
     models: dict[str, object] = {
-        "CFClassic": CFClassic(
-            n_factors=args.cf_factors,
-            n_epochs=args.cf_epochs,
-            lr=args.cf_lr,
-            reg=args.cf_reg,
-            random_state=42,
+        # "CFClassic": CFClassic(
+        #     n_factors=args.cf_factors,
+        #     n_epochs=args.cf_epochs,
+        #     lr=args.cf_lr,
+        #     reg=args.cf_reg,
+        #     random_state=42,
+        # ),
+        # "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
+        "CBAttention": CBAttention(
+            k_neighbors=args.k_neighbors,
+            min_sim=args.min_sim,
         ),
-        "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
-        "CBAttention": CBAttention(k_neighbors=args.k_neighbors),
-        "CBQuality": CBQuality(),
+        # "CBQuality": CBQuality(),
     }
 
     # ── Fit de datos para los modelos que requieren entrenamiento ─────── #
@@ -370,59 +379,59 @@ def main() -> None:
             _log_model_artifacts(name, model)
 
     # ── HybridFusion — requiere modelos base ya entrenados ──────────────── #
-    hybrid = HybridFusion(models)
-    with mlflow.start_run(run_name=f"{args.prefix}_HybridFusion"):
-        mlflow.log_input(train_dataset, context="training")
-        mlflow.log_input(test_dataset, context="testing")
-        mlflow.log_params(dataset_params)
-        mlflow.log_params(
-            {
-                "base_models": ",".join(models.keys()),
-                "initial_weights": ",".join(f"{w:.4f}" for w in hybrid.weights),
-            }
-        )
+    # hybrid = HybridFusion(models)
+    # with mlflow.start_run(run_name=f"{args.prefix}_HybridFusion"):
+    #     mlflow.log_input(train_dataset, context="training")
+    #     mlflow.log_input(test_dataset, context="testing")
+    #     mlflow.log_params(dataset_params)
+    #     mlflow.log_params(
+    #         {
+    #             "base_models": ",".join(models.keys()),
+    #             "initial_weights": ",".join(f"{w:.4f}" for w in hybrid.weights),
+    #         }
+    #     )
 
-        logger.info("Entrenando HybridFusion…")
-        t0 = time.perf_counter()
-        hybrid.fit(A)
-        fit_time = time.perf_counter() - t0
-        logger.info(f"  HybridFusion fit: {fit_time:.1f}s")
-        mlflow.log_metric("fit_time_sec", fit_time)
+    #     logger.info("Entrenando HybridFusion…")
+    #     t0 = time.perf_counter()
+    #     hybrid.fit(A)
+    #     fit_time = time.perf_counter() - t0
+    #     logger.info(f"  HybridFusion fit: {fit_time:.1f}s")
+    #     mlflow.log_metric("fit_time_sec", fit_time)
 
-        for k in args.k:
-            t0 = time.perf_counter()
-            metrics = evaluate_model(hybrid, ground_truth, k=k, Y=Y)
-            eval_time = time.perf_counter() - t0
+    #     for k in args.k:
+    #         t0 = time.perf_counter()
+    #         metrics = evaluate_model(hybrid, ground_truth, k=k, Y=Y)
+    #         eval_time = time.perf_counter() - t0
 
-            logger.info(
-                f"  {'HybridFusion':<20} "
-                f"Hit@{k}={metrics['hit']:.4f}  "
-                f"P@{k}={metrics['precision']:.4f}  "
-                f"R@{k}={metrics['recall']:.4f}  "
-                f"NDCG@{k}={metrics['ndcg']:.4f}  "
-                f"MRR={metrics['mrr']:.4f}  "
-                f"ILD={metrics['ild']:.4f}  "
-                f"Cov={metrics['coverage']:.4f}  "
-                f"({eval_time:.1f}s)"
-            )
+    #         logger.info(
+    #             f"  {'HybridFusion':<20} "
+    #             f"Hit@{k}={metrics['hit']:.4f}  "
+    #             f"P@{k}={metrics['precision']:.4f}  "
+    #             f"R@{k}={metrics['recall']:.4f}  "
+    #             f"NDCG@{k}={metrics['ndcg']:.4f}  "
+    #             f"MRR={metrics['mrr']:.4f}  "
+    #             f"ILD={metrics['ild']:.4f}  "
+    #             f"Cov={metrics['coverage']:.4f}  "
+    #             f"({eval_time:.1f}s)"
+    #         )
 
-            mlflow.log_metrics(
-                {
-                    "hit": metrics["hit"],
-                    "precision": metrics["precision"],
-                    "recall": metrics["recall"],
-                    "ndcg": metrics["ndcg"],
-                    "mrr": metrics["mrr"],
-                    "ild": metrics["ild"],
-                    "coverage": metrics["coverage"],
-                    "eval_time_sec": eval_time,
-                },
-                step=k,
-            )
+    #         mlflow.log_metrics(
+    #             {
+    #                 "hit": metrics["hit"],
+    #                 "precision": metrics["precision"],
+    #                 "recall": metrics["recall"],
+    #                 "ndcg": metrics["ndcg"],
+    #                 "mrr": metrics["mrr"],
+    #                 "ild": metrics["ild"],
+    #                 "coverage": metrics["coverage"],
+    #                 "eval_time_sec": eval_time,
+    #             },
+    #             step=k,
+    #         )
 
-            all_results.append({"model": "HybridFusion", "K": k, **metrics})
+    #         all_results.append({"model": "HybridFusion", "K": k, **metrics})
 
-        _log_model_artifacts("HybridFusion", hybrid)
+    #     _log_model_artifacts("HybridFusion", hybrid)
 
     # ── Tabla resumen ────────────────────────────────────────────────────── #
     results_df = pd.DataFrame(all_results)
