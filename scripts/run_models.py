@@ -35,6 +35,7 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).parent.parent))
 
+from mtrs.eval.metrics import evaluate_model
 from mtrs.models import CBAttention, CBQuality, CFClassic, CFMultiCriteria, HybridFusion
 
 logging.basicConfig(
@@ -47,98 +48,6 @@ logger = logging.getLogger(__name__)
 DATA_DIR = Path("data/rest-mex")
 MATRICES_DIR = DATA_DIR / "matrices"
 SPLITS_DIR = DATA_DIR / "splits"
-
-
-# --------------------------------------------------------------------------- #
-# Métricas                                                                     #
-# --------------------------------------------------------------------------- #
-
-
-def hit_at_k(recs: list[str], relevant: set[str]) -> float:
-    return 1.0 if any(r in relevant for r in recs) else 0.0
-
-
-def precision_at_k(recs: list[str], relevant: set[str]) -> float:
-    if not recs:
-        return 0.0
-    hits = sum(1 for r in recs if r in relevant)
-    return hits / len(recs)
-
-
-def recall_at_k(recs: list[str], relevant: set[str]) -> float:
-    if not relevant:
-        return 0.0
-    hits = sum(1 for r in recs if r in relevant)
-    return hits / len(relevant)
-
-
-def ndcg_at_k(recs: list[str], relevant: set[str]) -> float:
-    """Binary relevance NDCG@K."""
-    dcg = sum(1.0 / np.log2(i + 2) for i, r in enumerate(recs) if r in relevant)
-    ideal_hits = min(len(recs), len(relevant))
-    idcg = sum(1.0 / np.log2(i + 2) for i in range(ideal_hits))
-    return dcg / idcg if idcg > 0 else 0.0
-
-
-def mrr(recs: list[str], relevant: set[str]) -> float:
-    """Mean Reciprocal Rank: 1/rank of first hit, 0 if no hit."""
-    for i, r in enumerate(recs):
-        if r in relevant:
-            return 1.0 / (i + 1)
-    return 0.0
-
-
-def intra_list_diversity(recs: list[str], Y: pd.DataFrame) -> float:
-    """Mean pairwise cosine distance between recommended pueblos in Y-space."""
-    available = [p for p in recs if p in Y.index]
-    if len(available) < 2:
-        return 0.0
-    vecs = Y.loc[available].values
-    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
-    norms = np.where(norms == 0, 1.0, norms)
-    vecs_norm = vecs / norms
-    sim_matrix = vecs_norm @ vecs_norm.T
-    n = len(available)
-    # Average pairwise distance (upper triangle)
-    triu = sim_matrix[np.triu_indices(n, k=1)]
-    return float(1.0 - triu.mean())
-
-
-def evaluate_model(
-    model,
-    test_ground_truth: dict[str, set[str]],
-    k: int,
-    Y: pd.DataFrame,
-) -> dict[str, float]:
-    """
-    Itera sobre todos los usuarios en test_ground_truth, genera top-K
-    recomendaciones y computa métricas agregadas (macro-average).
-    """
-    metrics_per_user: list[dict[str, float]] = []
-    all_recommended: set[str] = set()
-
-    for user, relevant in test_ground_truth.items():
-        recs = [pueblo for pueblo, _ in model.recommend(user, k=k)]
-        all_recommended.update(recs)
-
-        metrics_per_user.append(
-            {
-                "hit": hit_at_k(recs, relevant),
-                "precision": precision_at_k(recs, relevant),
-                "recall": recall_at_k(recs, relevant),
-                "ndcg": ndcg_at_k(recs, relevant),
-                "mrr": mrr(recs, relevant),
-                "ild": intra_list_diversity(recs, Y),
-            }
-        )
-
-    agg = {
-        metric: float(np.mean([m[metric] for m in metrics_per_user]))
-        for metric in metrics_per_user[0]
-    }
-    n_pueblos = len(model._all_pueblos)
-    agg["coverage"] = len(all_recommended) / n_pueblos if n_pueblos else 0.0
-    return agg
 
 
 # --------------------------------------------------------------------------- #
@@ -198,7 +107,7 @@ def parse_args() -> argparse.Namespace:
         help="Similitud mínima para CFMultiCriteria / CBAttention (default: 0.0).",
     )
     parser.add_argument(
-        "--cf-lr", type=float, default=0.005, help="Learning rate para CFClassic."
+        "--cf-lr", type=float, default=0.01, help="Learning rate para CFClassic."
     )
     parser.add_argument(
         "--cf-reg",
@@ -216,26 +125,7 @@ def parse_args() -> argparse.Namespace:
 
 def _log_model_artifacts(name: str, model: object) -> None:
     """Guarda los pesos aprendidos del modelo como artifact en MLflow."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        artifact_path = Path(tmpdir) / f"{name}.npz"
-        if name == "CFClassic":
-            np.savez(
-                artifact_path,
-                mu=model._mu,
-                bu=model._bu,
-                bp=model._bp,
-                P=model._P,
-                Q=model._Q,
-            )
-        elif name == "CFMultiCriteria":
-            np.savez(artifact_path, R_tensor=model._R_tensor)
-        elif name == "CBAttention":
-            np.savez(artifact_path, sim_matrix=model._sim_matrix, mu=model._mu)
-        elif name == "CBQuality":
-            np.savez(artifact_path, scores=model._scores.values)
-        elif name == "HybridFusion":
-            np.savez(artifact_path, weights=model.weights)
-        mlflow.log_artifact(str(artifact_path))
+    pass
 
 
 # --------------------------------------------------------------------------- #
@@ -285,18 +175,18 @@ def main() -> None:
 
     # ── Definir modelos ──────────────────────────────────────────────────── #
     models: dict[str, object] = {
-        # "CFClassic": CFClassic(
-        #     n_factors=args.cf_factors,
-        #     n_epochs=args.cf_epochs,
-        #     lr=args.cf_lr,
-        #     reg=args.cf_reg,
-        #     random_state=42,
-        # ),
-        # "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
-        "CBAttention": CBAttention(
-            k_neighbors=args.k_neighbors,
-            min_sim=args.min_sim,
+        "CFClassic": CFClassic(
+            n_factors=args.cf_factors,
+            n_epochs=args.cf_epochs,
+            lr=args.cf_lr,
+            reg=args.cf_reg,
+            random_state=42,
         ),
+        # "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
+        # "CBAttention": CBAttention(
+        #     k_neighbors=args.k_neighbors,
+        #     min_sim=args.min_sim,
+        # ),
         # "CBQuality": CBQuality(),
     }
 
