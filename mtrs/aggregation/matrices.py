@@ -194,3 +194,131 @@ def compute_pueblo_aspect_quality(
         columns=h.columns,
     )
     return Y
+
+
+# ---------------------------------------------------------------------------
+# Variantes de ablación — fórmulas literales / intermedias de Zhang (2014)
+# ---------------------------------------------------------------------------
+
+
+def compute_pueblo_aspect_quality_zhang(df: pd.DataFrame) -> pd.DataFrame:
+    """Y_{p,j} fiel a Zhang et al. (2014), Eq. 3 — sin log-volumen ni temperatura.
+
+    Y_{p,j} = 1 + (N-1) / (1 + exp(-t_{p,j} * s_{p,j}))
+
+    donde:
+      t_{p,j} = conteo crudo de chunks de pueblo p sobre aspecto j.
+      s_{p,j} = sentimiento promedio escalado a [-1, 1].
+
+    El sentimiento se reescala dividiendo por 2 para ajustarse al rango
+    asumido en el paper original (en `_signed_sentiment` está en [-2, 2]).
+
+    Referencia:
+        Zhang et al. (2014), "Explicit Factor Models for Explainable
+        Recommendation based on Phrase-level Sentiment Analysis",
+        SIGIR '14, Eq. 3.
+
+    Returns:
+        pd.DataFrame: Shape (n_pueblos, len(ALL_ASPECTS)), valores en [1, 5].
+    """
+    signed = df.copy()
+    signed["sent_score"] = _signed_sentiment(signed) / 2.0  # → [-1, 1]
+
+    grouped = signed.groupby(["Pueblo", "aspect"])
+    s = (
+        grouped["sent_score"]
+        .mean()
+        .unstack(fill_value=0.0)
+        .reindex(columns=ALL_ASPECTS, fill_value=0.0)
+    )
+    t = (
+        grouped.size().unstack(fill_value=0).reindex(columns=ALL_ASPECTS, fill_value=0)
+    )
+
+    exponent = t.values * s.values
+    Y = pd.DataFrame(
+        1.0 + (N - 1) / (1.0 + np.exp(-exponent)),
+        index=s.index,
+        columns=s.columns,
+    )
+    return Y
+
+
+def compute_pueblo_aspect_quality_zhang_T(
+    df: pd.DataFrame, T: float | None = None
+) -> pd.DataFrame:
+    """Variante de Zhang Eq. 3 con normalización por temperatura (sin log).
+
+    Y_{p,j} = 1 + (N-1) / (1 + exp(-(t_{p,j} * s_{p,j}) / T))
+
+    Aísla el aporte de la temperatura T respecto a la versión literal
+    (`compute_pueblo_aspect_quality_zhang`): mantiene el conteo crudo
+    t_{p,j} pero reescala la señal por T para reanclar la pendiente
+    de la sigmoide y evitar saturación inmediata en pueblos con muchas
+    menciones.
+
+    Args:
+        df: DataFrame con columnas ['Pueblo', 'aspect', 'sentiment'].
+        T: Temperatura. Si es None, se deriva como median(|t * s| != 0).
+
+    Returns:
+        pd.DataFrame: Shape (n_pueblos, len(ALL_ASPECTS)), valores en [1, 5].
+    """
+    signed = df.copy()
+    signed["sent_score"] = _signed_sentiment(signed) / 2.0  # → [-1, 1]
+
+    grouped = signed.groupby(["Pueblo", "aspect"])
+    s = (
+        grouped["sent_score"]
+        .mean()
+        .unstack(fill_value=0.0)
+        .reindex(columns=ALL_ASPECTS, fill_value=0.0)
+    )
+    t = (
+        grouped.size().unstack(fill_value=0).reindex(columns=ALL_ASPECTS, fill_value=0)
+    )
+
+    signal = t.values * s.values
+    if T is None:
+        nonzero_signal = np.abs(signal[signal != 0])
+        T = float(np.median(nonzero_signal)) if len(nonzero_signal) > 0 else 1.0
+
+    exponent = signal / T
+    Y = pd.DataFrame(
+        1.0 + (N - 1) / (1.0 + np.exp(-exponent)),
+        index=s.index,
+        columns=s.columns,
+    )
+    return Y
+
+
+def compute_user_aspect_importance_zhang(df: pd.DataFrame) -> pd.DataFrame:
+    """X_{u,j} fiel a Zhang et al. (2014), Eq. 2 — sigmoide sobre conteo crudo.
+
+    t_{u,j} = número de chunks del usuario u clasificados en aspecto j.
+
+    X_{u,j} = 1 + (N-1) * (2 / (1 + exp(-t_{u,j})) - 1)
+
+    Equivale a la implementación actual con T = 1 (sin reescalado por
+    mediana global). Útil como ablación para aislar el efecto de la
+    temperatura derivada respecto al EFM original.
+
+    Referencia:
+        Zhang et al. (2014), SIGIR '14, Eq. 2.
+
+    Returns:
+        pd.DataFrame: Shape (n_users, len(ALL_ASPECTS)), valores en [1, 5].
+    """
+    t = (
+        df.groupby(["Author", "aspect"])
+        .size()
+        .unstack(fill_value=0)
+        .reindex(columns=ALL_ASPECTS, fill_value=0)
+    )
+    sigmoid_shifted = 2.0 / (1.0 + np.exp(-t.values)) - 1.0
+    X = pd.DataFrame(
+        1.0 + (N - 1) * sigmoid_shifted,
+        index=t.index,
+        columns=t.columns,
+    )
+    return X
