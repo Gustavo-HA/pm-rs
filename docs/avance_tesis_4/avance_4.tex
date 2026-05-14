@@ -15,6 +15,7 @@
 \usepackage{colortbl}
 \usepackage{tikz}
 \usepackage{microtype}
+\usepackage{pifont}
 
 % Paleta
 \definecolor{cream}{HTML}{F2EEE3}
@@ -78,6 +79,37 @@
 		\quad$\bullet$ Dr.\ Alejandro Rosales P\'erez\\
 		\quad$\bullet$ Dr.\ Miguel \'Angel \'Alvarez Carmona\\[0.5em]
 	\end{flushleft}
+\end{frame}
+
+% ───────────────────────────── Objetivos ───────────────────────────────── %
+\begin{frame}{Objetivos}
+	\small
+	\textbf{Objetivo General.}\;
+	Elaborar un sistema de recomendaci\'on h\'ibrido (SRH) para Pueblos M\'agicos de M\'exico que integre ABSA, compuesto por modelos colaborativos y basados en contenido, cuyos pesos de fusi\'on se calculen mediante algoritmos de optimizaci\'on.
+
+	\vspace{0.6em}
+	\textbf{Objetivos espec\'ificos:}
+	\begin{columns}[T]
+		\begin{column}{0.5\linewidth}
+			\begin{enumerate}\setlength\itemsep{3pt}
+				\item[\color{accentC}\ding{51}] Preparar el corpus de trabajo a partir del \textit{dataset} REST-MEX 2025.
+				\item[\color{accentC}\ding{51}] Pipeline de ABSA con Zero-Shot y Sentiment Classification.
+				\item[\color{accentC}\ding{51}] Derivar las matrices estructurales del sistema (relaci\'on usuarios, \'items, aspectos).
+			\end{enumerate}
+		\end{column}
+		\begin{column}{0.5\linewidth}
+			\begin{enumerate}\setlength\itemsep{3pt}
+				\item[\color{accentC}\ding{51}] Implementaci\'on de los modelos colaborativos y basados en contenido.
+				\item[$\square$] Implementar la fusi\'on de componentes como un problema de optimizaci\'on.
+				\item[$\square$] Evaluaci\'on del SRH.
+			\end{enumerate}
+		\end{column}
+	\end{columns}
+
+	\vspace{0.6em}
+	\centering
+	{\color{rule}\rule{0.4\linewidth}{0.4pt}}\\[0.3em]
+	\textit{Avance actual:} \textbf{4/6} objetivos espec\'ificos completados.
 \end{frame}
 
 % ───────────────────────────── Recapitulando ───────────────────────────── %
@@ -164,7 +196,7 @@
 			\begin{itemize}\setlength\itemsep{2pt}
 				\item En \textbf{B}, $Y$ colapsa: 97.9\% de celdas $>4.5$.
 				\item $T$ (C, D) recupera varianza por fila ($0.23$ vs $0.15$).
-				\item $\log(1+n)$ (A) sub-explota la se\~nal: $\overline{Y}=3.90$.
+				\item $\log(1+n)$ (A) degrada la se\~nal: $\overline{Y}=3.90$.
 			\end{itemize}
 		\end{column}
 	\end{columns}
@@ -261,8 +293,7 @@
 	\textbf{Hallazgos de la evaluaci\'on previa (Avance 3):}
 	\begin{itemize}\setlength\itemsep{2pt}
 		\item {\tt CBQuality} domina las m\'etricas de \textbf{ranking} (NDCG, MRR, Hit).
-		\item {\tt CBAttention} domina la \textbf{cobertura} del cat\'alogo.
-		\item Los filtros colaborativos ({\tt CFClassic}, {\tt CFMultiCriteria}) aportan poco frente al de contenido.
+		\item {\tt CFAttention} domina la \textbf{cobertura} del cat\'alogo.
 	\end{itemize}
 
 	\vspace{0.5em}
@@ -282,7 +313,7 @@
 	\small
 	Sea $\hat y^{(m)}_{u,p}$ el score normalizado del modelo $m$. Definimos
 	\[
-		\hat y_{u,p}(\alpha) \;=\; \alpha\,\hat y^{\mathtt{CBAttention}}_{u,p} \;+\; (1-\alpha)\,\hat y^{\mathtt{CBQuality}}_{u,p},
+		\hat y_{u,p}(\alpha) \;=\; \alpha\,\hat y^{\mathtt{CFAttention}}_{u,p} \;+\; (1-\alpha)\,\hat y^{\mathtt{CBQuality}}_{u,p},
 		\qquad \alpha \in [0,1].
 	\]
 	La funci\'on objetivo agrega ranking y diversidad:
@@ -292,12 +323,10 @@
 		\alpha^{\!*} \in \arg\max_{\alpha\in[0,1]} f(\alpha).
 	\]
 
-	\textbf{Implementaci\'on (\texttt{scripts/run\_hybrid\_alpha.py}):}
+	\textbf{Implementaci\'on:}
 	\begin{itemize}\setlength\itemsep{2pt}
-		\item Una sola pasada: se ajustan {\tt CBAttention} y {\tt CBQuality} y se precomputa el \texttt{score\_stack}.
-		\item Por cada $\alpha$ de la grilla ($\alpha\!\in\!\{0, 0.05, \dots, 1\}$ por defecto), s\'olo se re-pesa el stack v\'ia \texttt{set\_weights}.
-		\item Logging en MLflow: cada $\alpha$ es un \texttt{step}, las m\'etricas (\texttt{ndcg\_at\_K}, \texttt{coverage\_at\_K}, \dots) generan curvas con $\alpha$ en el eje $x$.
-		\item Persistencia v\'ia \texttt{joblib} del h\'ibrido ajustado y de los modelos base $\to$ inferencia reproducible.
+		\item Una sola pasada: se ajustan {\tt CFAttention} y {\tt CBQuality} y se precomputan los scores.
+		\item Por cada $\alpha$ de la grilla ($\alpha\!\in\!\{0, 0.05, \dots, 1\}$ por defecto), s\'olo se ponderan los scores.
 	\end{itemize}
 \end{frame}
 
@@ -341,15 +370,14 @@
 	\begin{enumerate}\setlength\itemsep{4pt}
 		\item Ejecutar el barrido $\alpha\in\{0,0.05,\dots,1\}$ y reportar la curva NDCG/Cov vs.\ $\alpha$.
 		\item Decidir $\alpha^{*}$ por criterio multi-objetivo (Pareto NDCG-Coverage) o por $\beta$ fijo.
-		\item Estudiar \textbf{explicabilidad}: dado $\alpha^{*}$, descomponer la recomendaci\'on en aportaci\'on por aspecto v\'ia $X,Y$.
 		\item Cerrar redacci\'on de Cap\'itulo 4 (resultados) e iniciar correcciones para defensa.
 	\end{enumerate}
 
 	\vspace{0.8em}
 	\centering
 	{\color{rule}\rule{0.5\linewidth}{0.4pt}}\\[0.5em]
-	\textit{Objetivos espec\'ificos del proyecto:} \textbf{5/6 completados}.\\
-	\textit{Resta:} evaluaci\'on final del SRH (Obj.\ 6) tras fijar $\alpha^{*}$.
+	\textit{Objetivos espec\'ificos del proyecto:} \textbf{4/6 completados}.\\
+	\textit{Resta:} fijar $\alpha^{*}$ (Obj.\ 5) y evaluaci\'on final del SRH (Obj.\ 6).
 \end{frame}
 
 % ─────────────────────── Gracias ───────────────────────────────────────── %
