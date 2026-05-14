@@ -66,7 +66,7 @@
 	\vspace{1.5em}
 	\begin{center}
 		{\usebeamerfont{title}\color{navy}Sistema de Recomendaci\'on H\'ibrido\\para Pueblos M\'agicos}\\[0.6em]
-		{\usebeamerfont{subtitle}\color{navy}An\'alisis de Aspectos y Optimizaci\'on Metaheur\'istica}\\[0.3em]
+		{\usebeamerfont{subtitle}\color{navy}An\'alisis de Aspectos y Optimizaci\'on Metaheur\'istica (?)}\\[0.3em]
 		{\color{rule}\rule{0.5\linewidth}{0.4pt}}\\[0.4em]
 		{\large\itshape Avance de Tesis 4}
 	\end{center}
@@ -118,7 +118,7 @@
 	\end{itemize}
 	\vspace{0.4em}
 	\textbf{Pregunta:} ¿cu\'al de estos dos cambios aporta realmente al desempe\~no?\\[0.3em]
-	\textbf{Dise\~no:} cuatro variantes cruzadas sobre los modelos que dependen de $X$ y/o $Y$ ({\tt CBAttention}, {\tt CBQuality}).
+	\textbf{Dise\~no:} cuatro variantes cruzadas sobre los modelos que dependen de $X$ y/o $Y$.
 
 	\vspace{0.8em}
 	\centering
@@ -202,7 +202,7 @@
 \end{frame}
 
 % ─────────────── NDCG por K para CBAttention (sanity check) ─────────────── %
-\begin{frame}{CBAttention \;|\; insensibilidad a $Y$}
+\begin{frame}{CF Atencion \;|\; insensibilidad a $Y$}
 	\begin{columns}[c]
 		\begin{column}{0.55\linewidth}
 			\centering
@@ -210,7 +210,7 @@
 		\end{column}
 		\begin{column}{0.45\linewidth}
 			\small
-			\textbf{Sanity check:} {\tt CBAttention} s\'olo usa $X$.
+			\textbf{Sanity check:} {\tt CFAttention} s\'olo usa $X$.
 			\begin{itemize}\setlength\itemsep{3pt}
 				\item Variantes con la misma $X$ producen NDCG id\'enticos:
 				      \[
