@@ -100,8 +100,8 @@
 		\begin{column}{0.5\linewidth}
 			\begin{enumerate}\setlength\itemsep{3pt}
 				\item[\color{accentC}\ding{51}] Implementaci\'on de los modelos colaborativos y basados en contenido.
-				\item[\color{accentC}\ding{51}] Implementar la fusi\'on de componentes y evaluar el SRH.
-				\item[$\square$] Análisis de resultados del modelo.
+				\item[\color{accentC}\ding{51}] Implementar la fusi\'on de componentes.
+				\item[$\square$] Evaluación del SRH y análisis de resultados.
 			\end{enumerate}
 		\end{column}
 	\end{columns}
@@ -213,7 +213,7 @@
 	\end{columns}
 
 	\vspace{0.5em}
-	\textbf{Sanity check.}\;\texttt{CFAttention} s\'olo usa $X$: variantes con
+	\textbf{Prueba de cordura.}\;\texttt{CFAttention} s\'olo usa $X$: variantes con
 	la misma $X$ deben producir m\'etricas id\'enticas (esperamos $\text{A}{=}\text{D}$
 	y $\text{B}{=}\text{C}$).
 \end{frame}
@@ -306,8 +306,8 @@
 % ─────────────── Resultados cualitativos: tabla por alpha ──────────────── %
 \begin{frame}{Resultados\;|\;c\'omo cambian las recomendaciones con $\alpha$}
 	\small
-	Usuario \texttt{Viajand\'isimo} — 8 pueblos en \emph{train}, 5 en \emph{test}\\
-	\textit{Ground truth:} \{Isla\_Mujeres, Mazamitla, Teotihuacan, Tepoztlan, Tulum\}
+	Usuario \texttt{Viajand\'isimo}: 8 pueblos en \emph{train}, 5 en \emph{test}\\
+	\textit{Pueblos en test:} \{Isla Mujeres, Mazamitla, Teotihuacan, Tepoztlan, Tulum\}
 
 	\vspace{0.5em}
 	\centering
@@ -334,7 +334,7 @@
 	\vspace{0.3em}
 	\scriptsize
 	\begin{itemize}\setlength\itemsep{0pt}
-		\item $\alpha\!=\!0$: dominan destinos de playa caribe\~na (cluster que el usuario ya frecuenta).
+		\item $\alpha\!=\!0$: dominan destinos de playa caribe\~na (conjunto que el usuario ya frecuenta).
 		\item $\alpha\!=\!0.5$: entra \texttt{Teotihuacan} (nuevo perfil, sigue acertando 2 hits).
 		\item $\alpha\!=\!1$: la lista se reorienta hacia destinos m\'as ex\'oticos (\texttt{Xilitla}, \texttt{Metepec}) \!$\Rightarrow$ mayor cobertura, menor ranking.
 	\end{itemize}
@@ -346,22 +346,22 @@
 	\textbf{Lo que cerramos en este avance:}
 	\begin{itemize}\setlength\itemsep{2pt}
 		\item Estudio de ablaci\'on de $X/Y$: $T$ es la pieza clave; $\log(1+n)$ se elimina.
-		\item Reformulaci\'on del h\'ibrido de 4 a 2 modelos (ambos ABSA-driven), grid-search 1D en $\alpha$.
+		\item Reformulaci\'on del h\'ibrido de 4 a 2 modelos (ambos basados en ABSA), grid-search 1D en $\alpha$.
 		\item Caracterizaci\'on completa del \emph{trade-off} NDCG vs Cobertura como funci\'on de $\alpha$.
 	\end{itemize}
 
 	\vspace{0.6em}
 	\textbf{Pr\'oximos pasos:}
 	\begin{enumerate}\setlength\itemsep{2pt}
-		\item Fijar $\alpha^{*}$ por criterio multi-objetivo (Pareto) o por $\beta$ acordado con el comit\'e.
-		\item Cerrar redacci\'on del Cap\'itulo 4 (resultados) e iniciar correcciones para defensa.
+		\item Exploración sobre las soluciones $\alpha^{*}$ dadas por el parámetro $\beta$ para la obtención de modelos diversos.
+		\item Cerrar redacci\'on del Cap\'itulo 4 (resultados) e iniciar correcciones.
 	\end{enumerate}
 
 	\vspace{0.6em}
 	\centering
 	{\color{rule}\rule{0.5\linewidth}{0.4pt}}\\[0.4em]
 	\textit{Objetivos espec\'ificos del proyecto:} \textbf{5/6 completados}.\\
-	\textit{Resta:} fijar $\alpha^{*}$ (Obj.\ 5) y evaluaci\'on final del SRH (Obj.\ 6).
+	\textit{Resta:} Evaluación de soluciones $\alpha^{*}$ y análisis de resultados.
 \end{frame}
 
 % ─────────────────────── Gracias ───────────────────────────────────────── %
@@ -371,6 +371,42 @@
 		{\fontsize{60}{72}\selectfont\bfseries\rmfamily\color{navy}GRACIAS}
 	\end{center}
 	\vfill
+\end{frame}
+
+% ─────────────────────────── Anexos ────────────────────────────────────── %
+\appendix
+
+\begin{frame}[plain]
+	\vfill
+	\begin{center}
+		{\fontsize{40}{48}\selectfont\bfseries\rmfamily\color{navy}ANEXOS}
+	\end{center}
+	\vfill
+\end{frame}
+
+% ─────────── Anexo: verificacion del sanity check (CFAttention) ────────── %
+\begin{frame}{Anexo\;|\;Verificaci\'on del sanity check (\texttt{CFAttention})}
+	\begin{columns}[c]
+		\begin{column}{0.55\linewidth}
+			\centering
+			\includegraphics[width=\linewidth]{figures/ndcg_cbattention.png}
+		\end{column}
+		\begin{column}{0.45\linewidth}
+			\small
+			\textbf{\texttt{CFAttention} es insensible a $Y$.} Variantes con la
+			misma $X$ producen NDCG@$K$ id\'enticos en todo el barrido:
+			\[
+				\text{A}\!=\!\text{D},\qquad \text{B}\!=\!\text{C}.
+			\]
+			\vspace{0.2em}
+			\begin{itemize}\setlength\itemsep{2pt}
+				\item Confirma ausencia de fuga entre las ramas $X$ e $Y$ del
+				      \emph{pipeline}.
+				\item Las diferencias observadas en \texttt{CBQuality} provienen
+				      de $Y$, no de ruido ni de desempates aleatorios.
+			\end{itemize}
+		\end{column}
+	\end{columns}
 \end{frame}
 
 \end{document}

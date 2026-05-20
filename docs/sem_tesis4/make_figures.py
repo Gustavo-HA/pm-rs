@@ -83,7 +83,7 @@ def main() -> None:
         color=NAVY,
         arrowprops=dict(arrowstyle="->", color=ACCENT_STAR, lw=1.2),
     )
-    ax.set_xlabel(r"$\alpha$  (peso de CBAttention)")
+    ax.set_xlabel(r"$\alpha$  (peso de CFAttention)")
     ax.set_ylabel("NDCG@10")
     ax.set_title("Ranking", color=NAVY)
     ax.grid(True, linestyle="--", alpha=0.5)
@@ -108,9 +108,9 @@ def main() -> None:
     ax.text(0.02, cov[0] + 0.005, f"CBQuality puro ({cov[0]:.2f})",
             fontsize=9, color=NAVY, alpha=0.85)
     ax.axhline(cov[-1], color=NAVY, linestyle=":", linewidth=1.0, alpha=0.6)
-    ax.text(0.02, cov[-1] - 0.025, f"CBAttention puro ({cov[-1]:.2f})",
+    ax.text(0.02, cov[-1] - 0.025, f"CFAttention puro ({cov[-1]:.2f})",
             fontsize=9, color=NAVY, alpha=0.85)
-    ax.set_xlabel(r"$\alpha$  (peso de CBAttention)")
+    ax.set_xlabel(r"$\alpha$  (peso de CFAttention)")
     ax.set_ylabel("Coverage@10")
     ax.set_title("Cobertura del catalogo", color=NAVY)
     ax.grid(True, linestyle="--", alpha=0.5)
