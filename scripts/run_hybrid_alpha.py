@@ -124,7 +124,7 @@ def main() -> None:
     alpha_grid = (
         np.asarray(args.alpha_grid, dtype=float)
         if args.alpha_grid is not None
-        else np.linspace(0.0, 1.0, 21)
+        else np.linspace(0.0, 1.0, 51)
     )
 
     matrices_dir = args.matrices_dir
