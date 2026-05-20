@@ -226,3 +226,5 @@ reports/RecommendTurismo/
 /mlflow.db
 /mlruns
 /wiki
+/mlartifacts
+/models
