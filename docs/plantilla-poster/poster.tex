@@ -215,11 +215,11 @@
 	\renewcommand{\arraystretch}{1.0}
 	\begin{tabular}{@{}c l l@{}}
 		\toprule
-		\textbf{Mat.} & \textbf{Forma}             & \textbf{Significado}        \\
+		\textbf{Matriz} & \textbf{Forma}             & \textbf{Significado}        \\
 		\midrule
-		$A$           & usuarios $\times$ pueblos  & calificaci\'on media        \\
-		$X$           & usuarios $\times$ aspectos & importancia usuario-aspecto \\
-		$Y$           & pueblos $\times$ aspectos  & calidad pueblo-aspecto      \\
+		$A$             & usuarios $\times$ pueblos  & calificaci\'on media        \\
+		$X$             & usuarios $\times$ aspectos & importancia usuario-aspecto \\
+		$Y$             & pueblos $\times$ aspectos  & calidad pueblo-aspecto      \\
 		\bottomrule
 	\end{tabular}\par}
 	\vskip0.2ex
@@ -267,27 +267,26 @@
 	%----------------------------------------------------------------------------------------
 	\headerbox{8.\ An\'alisis de sensibilidad}{name=sensibilidad,column=1,below=modelo,span=1}{
 		\centering
-		\includegraphics[width=\linewidth]{alpha_sweep.pdf}
+		\includegraphics[width=\linewidth]{alphaVSbeta.pdf}
 		\vskip0.3ex
 		\raggedright\footnotesize
-		Barrido de $\beta$ (peso de NDCG); cada punto marca el \'optimo $\alpha^{*}$ de su curva:
-		% \begin{compactitem}\setlength\itemsep{0pt}
-		% 	\item $\beta\!\to\!0$ (prioridad \textbf{cobertura}): $\alpha^{*}$ alto ($\approx 0.8$); domina el modelo colaborativo.
-		% 	\item $\beta\!\to\!1$ (prioridad \textbf{relevancia}): $\alpha^{*}\!\to\!0$; domina el modelo basado en contenido.
-		% 	\item No hay un $\alpha^{*}$ \'unico: se elige seg\'un el compromiso relevancia--cobertura deseado.
-		% \end{compactitem}
+		Trayectoria del \'optimo $\alpha^{\star}(\beta)$ (escalera roja) y m\'etricas
+		realizadas en \'el. Al priorizar \textbf{relevancia} ($\beta\!\uparrow$) el
+		\'optimo \hl{migra} de un filtrado colaborativo ($\alpha^{\star}\!\approx\!0.8$) a
+		un filtrado basado en contenido ($\alpha^{\star}\!\to\!0$). El eje gemelo recorre la frontera
+		de Pareto: $\mathrm{Cov@10}$ cae mientras $\mathrm{NDCG@10}$ sube.
 	}
 
 	%----------------------------------------------------------------------------------------
 	%	9. CONCLUSIONES
 	%----------------------------------------------------------------------------------------
 	\headerbox{9.\ Conclusiones}{name=conclusiones,column=1,below=sensibilidad,span=1}{
-		\vspace{0.3cm}
+		\vspace{0.12cm}
 		\begin{compactitem}\setlength\itemsep{0pt}
 			\item ABSA convierte el texto libre de las rese\~nas en perfiles interpretables, tanto para los usuarios como para los pueblos.
-			\item El h\'ibrido permite obtener modelos diversos que se ajustan a las necesidades del cliente; cobertura del catálogo o relevancia.
+			\item El h\'ibrido permite obtener modelos diversos que se ajustan a las necesidades del cliente; cobertura del catálogo y/o relevancia.
 		\end{compactitem}
-		\vspace{0.3cm}
+		\vspace{0.12cm}
 	}
 
 \end{poster}
