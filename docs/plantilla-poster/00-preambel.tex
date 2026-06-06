@@ -1,0 +1,100 @@
+% !TeX encoding = UTF-8
+% !TeX spellcheck = es_MX
+
+%Clase de documento, configuración de idioma, fuentes
+\documentclass[a1paper,portrait,fontscale=0.40]{baposter}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{arev}
+\usepackage[T1]{fontenc}
+
+%Matemáticas, símbolos
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+%Tipografía
+\usepackage[auto]{microtype}
+
+%Inclusión de imágenes, tablas, código fuente
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{paralist}
+\usepackage{pifont}
+
+%Colores y TikZ
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,backgrounds,fit,calc}
+
+%Búsqueda de gráficos (las figuras/logos se reutilizan desde docs/poster/)
+\graphicspath{{../sem_tesis4/figures/}{../../reports/Tesis/logo/}{../../reports/Tesis/figures/}{../../reports/}{bilder/}}
+
+%Paleta del proyecto (de sem_tesis4 / poster navy-cream, con acento lila)
+\definecolor{cream}{HTML}{F2EEE3}
+\definecolor{paper}{HTML}{FBFAF6}
+\definecolor{navy}{HTML}{2F3E4E}
+\definecolor{accentA}{HTML}{7E57C2}
+\definecolor{accentB}{HTML}{EF6C00}
+\definecolor{accentC}{HTML}{2E7D32}
+\definecolor{accentD}{HTML}{C62828}
+\definecolor{rule}{HTML}{B5AFA1}
+
+%Definición de colores (degradado lila en encabezados: blanco -> lila, marco negro)
+\definecolor{standardfontcolor}{HTML}{2F3E4E}
+\definecolor{bordercol}{HTML}{000000}
+\definecolor{headercol1}{HTML}{FFFFFF}
+\definecolor{headercol2}{HTML}{7E57C2}
+\definecolor{headerfontcol}{HTML}{000000}
+\definecolor{boxcolor}{HTML}{FBFAF6}
+
+%Macro auxiliar para resaltar
+\newcommand{\hl}[1]{{\color{accentD}\textbf{#1}}}
+
+%Colores para los perfiles de aspectos (azul = Pueblo A, rosa = Pueblo B)
+\definecolor{azulperfil}{HTML}{3B3FA8}
+\definecolor{rosaperfil}{HTML}{C42B86}
+
+%Diagrama de radar/red para los perfiles de aspectos de los pueblos.
+% [#1] Opacidad del relleno (opcional, default 0.85)
+%  #2  Título,  #3 Color,
+%  #4..#8 Valores (Gastronomía, Naturaleza, Cultura, Tranquilidad, Precio) en escala 0-5.
+\newcommand{\perfilradar}[8][0.85]{%
+	\begin{tikzpicture}[every node/.style={font=\footnotesize}]
+		\def\maxR{2.6}
+		% Pentágonos concéntricos (rejilla)
+		\foreach \r in {1,...,5}{
+				\draw[navy!90,line width=0.4pt]
+				(90:{\r/5*\maxR}) -- (18:{\r/5*\maxR}) -- (-54:{\r/5*\maxR}) --
+				(-126:{\r/5*\maxR}) -- (162:{\r/5*\maxR}) -- cycle;
+			}
+		% Ejes
+		\foreach \a in {90,18,-54,-126,162}{
+				\draw[navy!35,line width=0.4pt] (0,0) -- (\a:\maxR);
+			}
+		% Polígono de datos con degradado radial (claro al centro -> intenso en el borde)
+		\begin{scope}
+			\clip (90:{#4/5*\maxR}) -- (18:{#5/5*\maxR}) -- (-54:{#6/5*\maxR}) --
+			(-126:{#7/5*\maxR}) -- (162:{#8/5*\maxR}) -- cycle;
+			\shade[inner color=#3!12,outer color=#3!85,opacity=#1] (0,0) circle (\maxR);
+		\end{scope}
+		\draw[draw=#3,line width=1.3pt,opacity=#1]
+		(90:{#4/5*\maxR}) -- (18:{#5/5*\maxR}) -- (-54:{#6/5*\maxR}) --
+		(-126:{#7/5*\maxR}) -- (162:{#8/5*\maxR}) -- cycle;
+		% Círculo central con el promedio
+		\fill[paper] (0,0) circle (0.74cm);
+		\draw[navy!35,line width=0.4pt] (0,0) circle (0.74cm);
+		\node[align=center] at (0,0) {Promedio:\\4.5};
+		% Etiquetas de los ejes (radio mayor para separar del vértice)
+		\pgfmathsetmacro{\labelR}{\maxR+0.14}
+		\node[above]       at (90:\labelR)   {Gastronom\'ia};
+		\node[right]       at (18:\labelR)   {Ambiente};
+		\node[below right] at (-54:\labelR)  {Servicio};
+		\node[below left]  at (-126:\labelR) {Infrastructura};
+		\node[left]        at (162:\labelR)  {Precio};
+		% Título
+		\node[font=\normalsize\bfseries,text=#3] at (90:{\maxR+1.05}) {#2};
+	\end{tikzpicture}%
+}
