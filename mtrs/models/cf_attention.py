@@ -1,4 +1,4 @@
-# Content-Based: CF usuario-usuario usando similitud coseno sobre X_{u,j}.
+# Filtrado Colaborativo (rama CF) usuario-usuario sobre la atención X_{u,j}.
 #
 # Combina la matriz de atención usuario-aspecto X (Zhang et al., 2014) con
 # la matriz de ratings A para estimar r̂_{u,p}^{att} mediante vecinos cercanos
@@ -26,7 +26,7 @@ from typing import Self
 from .base import BaseRecommender
 
 
-class CBAttention(BaseRecommender):
+class CFAttention(BaseRecommender):
     """User-User CF con similitud coseno sobre la matriz de atención X.
 
     Precomputa la matriz de similitud completa (m × m) en fit() para
