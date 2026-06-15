@@ -4,7 +4,7 @@ Inferencia: genera top-K recomendaciones para un usuario específico.
 Uso:
     uv run scripts/infer.py --user "NombreUsuario" --model CFClassic
     uv run scripts/infer.py --user "NombreUsuario" --model HybridFusion --k 10
-    uv run scripts/infer.py --user "NombreUsuario" --model CBAttention --k 5 --include-visited
+    uv run scripts/infer.py --user "NombreUsuario" --model CFAttention --k 5 --include-visited
     uv run scripts/infer.py --list-users
 """
 
@@ -18,12 +18,12 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from mtrs.models import CBAttention, CBQuality, CFClassic, CFMultiCriteria, HybridFusion
+from mtrs.models import CFAttention, CBQuality, CFClassic, HybridFusion
 
 DATA_DIR = Path("data/rest-mex")
 MATRICES_DIR = DATA_DIR / "matrices" / "zs-bert-tempmedian"
 
-MODELS = ["CFClassic", "CFMultiCriteria", "CBQuality", "CBAttention", "HybridFusion"]
+MODELS = ["CFClassic", "CBQuality", "CFAttention", "HybridFusion"]
 
 # Hyperparameter defaults (match run_models.py)
 CF_FACTORS = 100
@@ -75,12 +75,11 @@ def load_matrices(matrices_dir: Path) -> tuple[pd.DataFrame, ...]:
     A = pd.read_parquet(matrices_dir / "A.parquet")
     X = pd.read_parquet(matrices_dir / "X.parquet")
     Y = pd.read_parquet(matrices_dir / "Y.parquet")
-    R = pd.read_parquet(matrices_dir / "R.parquet")
-    return A, X, Y, R
+    return A, X, Y
 
 
 def build_and_fit(
-    model_name: str, A: pd.DataFrame, X: pd.DataFrame, Y: pd.DataFrame, R: pd.DataFrame, args: argparse.Namespace
+    model_name: str, A: pd.DataFrame, X: pd.DataFrame, Y: pd.DataFrame, args: argparse.Namespace
 ) -> object:
     base_models = {
         "CFClassic": CFClassic(
@@ -90,25 +89,25 @@ def build_and_fit(
             reg=args.cf_reg,
             random_state=42,
         ),
-        "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
-        "CBAttention": CBAttention(k_neighbors=args.k_neighbors),
+        "CFAttention": CFAttention(k_neighbors=args.k_neighbors),
         "CBQuality": CBQuality(),
     }
 
     fit_data = {
         "CFClassic": (A,),
-        "CFMultiCriteria": (R, A),
-        "CBAttention": (X, A),
+        "CFAttention": (X, A),
         "CBQuality": (X, Y, A),
     }
 
     if model_name == "HybridFusion":
+        # Híbrido convexo de un parámetro: CFAttention (CF) + CBQuality (CB).
+        hybrid_models = {"CFAttention": base_models["CFAttention"], "CBQuality": base_models["CBQuality"]}
         print("Entrenando modelos base para HybridFusion…")
-        for name, model in base_models.items():
+        for name, model in hybrid_models.items():
             print(f"  → {name}…", end=" ", flush=True)
             model.fit(*fit_data[name])
             print("listo")
-        hybrid = HybridFusion(base_models)
+        hybrid = HybridFusion(hybrid_models)
         hybrid.fit(A)
         return hybrid
 
@@ -124,7 +123,7 @@ def main() -> None:
     matrices_dir = args.matrices_dir
 
     print(f"Cargando matrices desde {matrices_dir}…")
-    A, X, Y, R = load_matrices(matrices_dir)
+    A, X, Y = load_matrices(matrices_dir)
 
     if args.list_users:
         print(f"\n{len(A.index):,} usuarios disponibles:\n")
@@ -150,7 +149,7 @@ def main() -> None:
         user_test = test_df[test_df["Author"] == args.user]
         relevant = set(user_test["Pueblo"].unique())
 
-    model = build_and_fit(args.model, A, X, Y, R, args)
+    model = build_and_fit(args.model, A, X, Y, args)
 
     exclude_visited = not args.include_visited
     recs = model.recommend(args.user, k=args.k, exclude_visited=exclude_visited)

@@ -12,7 +12,7 @@ Cuatro condiciones cruzadas:
        D     │ sigmoide + T (actual)   │ Zhang Eq.3 + T (sin log)
 
 Modelos evaluados (los que dependen de X y/o Y):
-  - CBAttention  (depende de X)
+  - CFAttention  (depende de X)
   - CBQuality    (depende de X y de Y)
 
 Comparaciones:
@@ -50,10 +50,9 @@ from mtrs.aggregation.matrices import (
     compute_rating_matrix,
     compute_user_aspect_importance,
     compute_user_aspect_importance_zhang,
-    compute_user_pueblo_aspect_sentiment,
 )
 from mtrs.eval.metrics import evaluate_model
-from mtrs.models import CBAttention, CBQuality
+from mtrs.models import CFAttention, CBQuality
 
 logging.basicConfig(
     level=logging.INFO,
@@ -166,13 +165,13 @@ def parse_args() -> argparse.Namespace:
         "--k-neighbors",
         type=int,
         default=20,
-        help="Vecinos para CBAttention.",
+        help="Vecinos para CFAttention.",
     )
     parser.add_argument(
         "--min-sim",
         type=float,
         default=0.0,
-        help="Similitud mínima para CBAttention.",
+        help="Similitud mínima para CFAttention.",
     )
     parser.add_argument(
         "--output",
@@ -263,14 +262,14 @@ def main() -> None:
         )
 
         models: dict[str, object] = {
-            "CBAttention": CBAttention(
+            "CFAttention": CFAttention(
                 k_neighbors=args.k_neighbors,
                 min_sim=args.min_sim,
             ),
             "CBQuality": CBQuality(),
         }
         fit_data: dict[str, tuple] = {
-            "CBAttention": (X, A),
+            "CFAttention": (X, A),
             "CBQuality": (X, Y, A),
         }
 

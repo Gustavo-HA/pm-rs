@@ -42,8 +42,7 @@ METRIC_YLABELS = {
 NAME_MAP = {
     "_HybridFusion":    "Híbrido",
     "_CBQuality":       "CB Calidad",
-    "_CBAttention":     "CB Atención",
-    "_CFMultiCriteria": "CF Multicriterio",
+    "_CFAttention":     "CF Atención",
     "_CFClassic":       "CF Clásico",
 }
 
@@ -51,8 +50,7 @@ NAME_MAP = {
 MODEL_ORDER = [
     "Híbrido",
     "CB Calidad",
-    "CB Atención",
-    "CF Multicriterio",
+    "CF Atención",
     "CF Clásico",
 ]
 
@@ -60,8 +58,7 @@ MODEL_ORDER = [
 STYLES = {
     "Híbrido":          dict(color="#e41a1c", marker="o",  linestyle="-",   linewidth=2.5, markersize=7,  zorder=5),
     "CB Calidad":       dict(color="#377eb8", marker="s",  linestyle="-",   linewidth=2.0, markersize=6),
-    "CB Atención":      dict(color="#4daf4a", marker="^",  linestyle="-",   linewidth=2.0, markersize=6),
-    "CF Multicriterio": dict(color="#ff7f00", marker="D",  linestyle="--",  linewidth=2.0, markersize=6),
+    "CF Atención":      dict(color="#4daf4a", marker="^",  linestyle="-",   linewidth=2.0, markersize=6),
     "CF Clásico":       dict(color="#984ea3", marker="v",  linestyle="--",  linewidth=2.0, markersize=6),
 }
 

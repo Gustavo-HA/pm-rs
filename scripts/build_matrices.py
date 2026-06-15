@@ -1,15 +1,14 @@
 """
-Script para construir las cuatro matrices del sistema de recomendación multi-criterio.
+Script para construir las matrices estructurales del sistema de recomendación.
 
 Entrada:
   - data/rest-mex/absa/train_aspect_sentiment.parquet  (ABSA sobre split train)
-  - data/rest-mex/processed/filtered_dataset.parquet  (para M1, join con train authors)
+  - data/rest-mex/processed/filtered_dataset.parquet  (para A, join con train authors)
 
 Salida (en data/rest-mex/matrices/):
   - A.parquet  — Matriz de ratings        (m × n)
   - X.parquet  — Importancia usuario-aspecto (m × p)
   - Y.parquet  — Calidad pueblo-aspecto   (n × p)
-  - R.parquet  — Sentimiento u-p-j        (m·n × p, MultiIndex Author×Pueblo)
 
 Uso:
     uv run python scripts/build_matrices.py
@@ -30,7 +29,6 @@ from mtrs.aggregation.matrices import (
     compute_rating_matrix,
     compute_user_aspect_importance,
     compute_pueblo_aspect_quality,
-    compute_user_pueblo_aspect_sentiment,
 )
 
 logging.basicConfig(
@@ -47,7 +45,7 @@ DEFAULT_OUTPUT = DATA_DIR / "matrices"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Construye las matrices M1–M4 del sistema de recomendación."
+        description="Construye las matrices A, X, Y del sistema de recomendación."
     )
     parser.add_argument(
         "--absa",
@@ -81,27 +79,22 @@ def main() -> None:
 
     logger.info("Construyendo matrices…")
 
-    logger.info("M1 — Rating matrix A (u × p)")
+    logger.info("A — Rating matrix (u × p)")
     A = compute_rating_matrix(df_absa)
     _log_shape("A", A)
 
-    logger.info("M2 — User-aspect importance X (u × j)")
+    logger.info("X — User-aspect importance (u × j)")
     X = compute_user_aspect_importance(df_absa)
     _log_shape("X", X)
 
-    logger.info("M3 — Pueblo-aspect quality Y (p × j)")
+    logger.info("Y — Pueblo-aspect quality (p × j)")
     Y = compute_pueblo_aspect_quality(df_absa)
     _log_shape("Y", Y)
-
-    logger.info("M4 — User-pueblo-aspect sentiment R (u·p × j)")
-    R = compute_user_pueblo_aspect_sentiment(df_absa)
-    _log_shape("R", R)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     A.to_parquet(args.output_dir / "A.parquet")
     X.to_parquet(args.output_dir / "X.parquet")
     Y.to_parquet(args.output_dir / "Y.parquet")
-    R.to_parquet(args.output_dir / "R.parquet")
 
     logger.info(f"Matrices guardadas en {args.output_dir}/")
 

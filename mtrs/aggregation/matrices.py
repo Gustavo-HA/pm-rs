@@ -1,4 +1,7 @@
-# Construcción de las cuatro matrices del sistema de recomendación multi-criterio.
+# Construcción de las matrices estructurales del sistema de recomendación.
+#
+# Tres matrices alimentan los modelos basados en aspectos: A (ratings),
+# X (importancia usuario-aspecto) e Y (calidad pueblo-aspecto).
 #
 # Notación:
 #   u  — usuario (Author)
@@ -52,35 +55,6 @@ def compute_rating_matrix(df: pd.DataFrame) -> pd.DataFrame:
         .unstack(level="Pueblo")
     )
     return A
-
-
-# ---------------------------------------------------------------------------
-# R_{u,p,j}  —  Sentimiento usuario–pueblo–aspecto
-# ---------------------------------------------------------------------------
-
-
-def compute_user_pueblo_aspect_sentiment(df: pd.DataFrame) -> pd.DataFrame:
-    """Calcula el sentimiento promedio por (usuario, pueblo, aspecto).
-
-    R_{u,p,j} = mean_{s in S_{u,p,j}} sent_score(s)
-
-    donde S_{u,p,j} son todos los chunks del usuario u sobre el pueblo p
-    clasificados en el aspecto j.
-
-    Returns:
-        pd.DataFrame: MultiIndex (Author, Pueblo) x ALL_ASPECTS.
-                      NaN donde el usuario no mencionó ese aspecto en ese pueblo.
-    """
-    signed = df.copy()
-    signed["sent_score"] = _signed_sentiment(signed)
-
-    R = (
-        signed.groupby(["Author", "Pueblo", "aspect"])["sent_score"]
-        .mean()
-        .unstack(level="aspect")
-        .reindex(columns=ALL_ASPECTS)
-    )
-    return R
 
 
 # ---------------------------------------------------------------------------

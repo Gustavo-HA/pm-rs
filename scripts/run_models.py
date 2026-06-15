@@ -1,11 +1,12 @@
 """
-Entrena y evalúa los cuatro modelos del RecSys sobre el split test temporal.
+Entrena y evalúa los modelos base del RecSys sobre el split test temporal.
+
+Modelos (baselines individuales): CFClassic, CFAttention, CBQuality.
 
 Matrices de entrada (data/rest-mex/matrices/):
   A.parquet — ratings u×p
   X.parquet — atención usuario-aspecto
   Y.parquet — calidad pueblo-aspecto
-  R.parquet — sentimiento u-p-j (MultiIndex Author×Pueblo)
 
 Split de evaluación (data/rest-mex/splits/):
   test.parquet — pueblos en el "último mes" de cada usuario (ground truth)
@@ -36,7 +37,7 @@ import pandas as pd
 sys.path.append(str(Path(__file__).parent.parent))
 
 from mtrs.eval.metrics import evaluate_model
-from mtrs.models import CBAttention, CBQuality, CFClassic, CFMultiCriteria, HybridFusion
+from mtrs.models import CFAttention, CBQuality, CFClassic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,7 +62,7 @@ def parse_args() -> argparse.Namespace:
         "--matrices-dir",
         type=Path,
         default=MATRICES_DIR,
-        help=f"Directorio con matrices A, X, Y, R (default: {MATRICES_DIR}).",
+        help=f"Directorio con matrices A, X, Y (default: {MATRICES_DIR}).",
     )
     parser.add_argument(
         "--k",
@@ -98,13 +99,13 @@ def parse_args() -> argparse.Namespace:
         "--k-neighbors",
         type=int,
         default=20,
-        help="Vecinos para CFMultiCriteria / CBAttention.",
+        help="Vecinos para CFAttention.",
     )
     parser.add_argument(
         "--min-sim",
         type=float,
         default=0.0,
-        help="Similitud mínima para CFMultiCriteria / CBAttention (default: 0.0).",
+        help="Similitud mínima para CFAttention (default: 0.0).",
     )
     parser.add_argument(
         "--cf-lr", type=float, default=0.01, help="Learning rate para CFClassic."
@@ -144,8 +145,7 @@ def main() -> None:
     A = pd.read_parquet(matrices_dir / "A.parquet")
     X = pd.read_parquet(matrices_dir / "X.parquet")
     Y = pd.read_parquet(matrices_dir / "Y.parquet")
-    R = pd.read_parquet(matrices_dir / "R.parquet")
-    logger.info(f"  A: {A.shape}  X: {X.shape}  Y: {Y.shape}  R: {R.shape}")
+    logger.info(f"  A: {A.shape}  X: {X.shape}  Y: {Y.shape}")
 
     # ── Construir ground truth desde test ────────────────────────────────── #
     logger.info("Construyendo ground truth desde splits/test.parquet…")
@@ -182,19 +182,17 @@ def main() -> None:
             reg=args.cf_reg,
             random_state=42,
         ),
-        # "CFMultiCriteria": CFMultiCriteria(k_neighbors=args.k_neighbors),
-        # "CBAttention": CBAttention(
-        #     k_neighbors=args.k_neighbors,
-        #     min_sim=args.min_sim,
-        # ),
-        # "CBQuality": CBQuality(),
+        "CFAttention": CFAttention(
+            k_neighbors=args.k_neighbors,
+            min_sim=args.min_sim,
+        ),
+        "CBQuality": CBQuality(),
     }
 
     # ── Fit de datos para los modelos que requieren entrenamiento ─────── #
     fit_data: dict[str, tuple] = {
         "CFClassic": (A,),
-        "CFMultiCriteria": (R, A),
-        "CBAttention": (X, A),
+        "CFAttention": (X, A),
         "CBQuality": (X, Y, A),
     }
 
@@ -206,7 +204,6 @@ def main() -> None:
         "A_shape": str(A.shape),
         "X_shape": str(X.shape),
         "Y_shape": str(Y.shape),
-        "R_shape": str(R.shape),
         "n_test_users": n_test_users,
     }
 
@@ -268,60 +265,8 @@ def main() -> None:
             # ── Artifacts: pesos del modelo ──────────────────────────── #
             _log_model_artifacts(name, model)
 
-    # ── HybridFusion — requiere modelos base ya entrenados ──────────────── #
-    # hybrid = HybridFusion(models)
-    # with mlflow.start_run(run_name=f"{args.prefix}_HybridFusion"):
-    #     mlflow.log_input(train_dataset, context="training")
-    #     mlflow.log_input(test_dataset, context="testing")
-    #     mlflow.log_params(dataset_params)
-    #     mlflow.log_params(
-    #         {
-    #             "base_models": ",".join(models.keys()),
-    #             "initial_weights": ",".join(f"{w:.4f}" for w in hybrid.weights),
-    #         }
-    #     )
-
-    #     logger.info("Entrenando HybridFusion…")
-    #     t0 = time.perf_counter()
-    #     hybrid.fit(A)
-    #     fit_time = time.perf_counter() - t0
-    #     logger.info(f"  HybridFusion fit: {fit_time:.1f}s")
-    #     mlflow.log_metric("fit_time_sec", fit_time)
-
-    #     for k in args.k:
-    #         t0 = time.perf_counter()
-    #         metrics = evaluate_model(hybrid, ground_truth, k=k, Y=Y)
-    #         eval_time = time.perf_counter() - t0
-
-    #         logger.info(
-    #             f"  {'HybridFusion':<20} "
-    #             f"Hit@{k}={metrics['hit']:.4f}  "
-    #             f"P@{k}={metrics['precision']:.4f}  "
-    #             f"R@{k}={metrics['recall']:.4f}  "
-    #             f"NDCG@{k}={metrics['ndcg']:.4f}  "
-    #             f"MRR={metrics['mrr']:.4f}  "
-    #             f"ILD={metrics['ild']:.4f}  "
-    #             f"Cov={metrics['coverage']:.4f}  "
-    #             f"({eval_time:.1f}s)"
-    #         )
-
-    #         mlflow.log_metrics(
-    #             {
-    #                 "hit": metrics["hit"],
-    #                 "precision": metrics["precision"],
-    #                 "recall": metrics["recall"],
-    #                 "ndcg": metrics["ndcg"],
-    #                 "mrr": metrics["mrr"],
-    #                 "ild": metrics["ild"],
-    #                 "coverage": metrics["coverage"],
-    #                 "eval_time_sec": eval_time,
-    #             },
-    #             step=k,
-    #         )
-
-    #         all_results.append({"model": "HybridFusion", "K": k, **metrics})
-
-    #     _log_model_artifacts("HybridFusion", hybrid)
+    # El híbrido convexo de un parámetro (CFAttention + CBQuality) y la
+    # selección de α* por barrido viven en scripts/run_hybrid_alpha.py.
 
     # ── Tabla resumen ────────────────────────────────────────────────────── #
     results_df = pd.DataFrame(all_results)

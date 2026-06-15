@@ -1,5 +1,5 @@
 """
-Inferencia con el hibrido CBAttention + CBQuality usando alpha en runtime.
+Inferencia con el hibrido CFAttention + CBQuality usando alpha en runtime.
 
 Carga el HybridFusion serializado (joblib), reasigna los pesos a [alpha, 1-alpha]
 y genera top-K recomendaciones para el usuario indicado.
@@ -29,14 +29,14 @@ DEFAULT_MODEL_PATH = Path("models/hybrid_ab/hybrid.joblib")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Inferencia del hibrido alpha-CBAttention/CBQuality."
+        description="Inferencia del hibrido alpha-CFAttention/CBQuality."
     )
     parser.add_argument("--user", type=str, help="Identificador del usuario (Author).")
     parser.add_argument(
         "--alpha",
         type=float,
         default=0.5,
-        help="Peso del CBAttention. (1-alpha) va al CBQuality. (default: 0.5)",
+        help="Peso del CFAttention. (1-alpha) va al CBQuality. (default: 0.5)",
     )
     parser.add_argument(
         "--k", type=int, default=10, help="Numero de recomendaciones (default: 10)."
@@ -93,9 +93,9 @@ def main() -> None:
 
     # Pesos: [alpha, 1-alpha] segun orden de modelos en el dict del hibrido.
     model_names = hybrid._model_names
-    if model_names != ["CBAttention", "CBQuality"]:
+    if model_names != ["CFAttention", "CBQuality"]:
         print(
-            f"Advertencia: orden de modelos esperado ['CBAttention', 'CBQuality'], "
+            f"Advertencia: orden de modelos esperado ['CFAttention', 'CBQuality'], "
             f"encontrado {model_names}."
         )
     hybrid.set_weights(np.array([args.alpha, 1.0 - args.alpha]))
@@ -117,7 +117,7 @@ def main() -> None:
     print(f"\n{'=' * 60}")
     print(f"Usuario      : {args.user}")
     print(f"Modelo       : HybridFusion (alpha={args.alpha:.4f})")
-    print(f"  w_CBAttention = {args.alpha:.4f}")
+    print(f"  w_CFAttention = {args.alpha:.4f}")
     print(f"  w_CBQuality   = {1.0 - args.alpha:.4f}")
     print(f"Pueblos visitados (train): {n_visited}")
     if relevant:

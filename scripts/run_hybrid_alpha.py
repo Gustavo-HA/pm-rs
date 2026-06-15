@@ -1,7 +1,7 @@
 """
-Barrido del peso alpha en el hibrido CBAttention + CBQuality.
+Barrido del peso alpha en el hibrido CFAttention + CBQuality.
 
-    r_hat(alpha) = alpha * r_hat_CBAttention + (1 - alpha) * r_hat_CBQuality
+    r_hat(alpha) = alpha * r_hat_CFAttention + (1 - alpha) * r_hat_CBQuality
 
 Para cada alpha de la grilla se evaluan metricas top-K (NDCG, Coverage,
 Hit, Precision, Recall, MRR, ILD) y se trackean en MLflow dentro de un
@@ -37,7 +37,7 @@ import pandas as pd
 sys.path.append(str(Path(__file__).parent.parent))
 
 from mtrs.eval.metrics import evaluate_model
-from mtrs.models import CBAttention, CBQuality, HybridFusion
+from mtrs.models import CFAttention, CBQuality, HybridFusion
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,13 +58,13 @@ STEP_SCALE = 1000
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Barrido de alpha en hibrido CBAttention + CBQuality."
+        description="Barrido de alpha en hibrido CFAttention + CBQuality."
     )
     parser.add_argument(
         "--matrices-dir",
         type=Path,
         default=MATRICES_DIR,
-        help=f"Directorio con matrices A, X, Y, R (default: {MATRICES_DIR}).",
+        help=f"Directorio con matrices A, X, Y (default: {MATRICES_DIR}).",
     )
     parser.add_argument(
         "--k",
@@ -78,7 +78,15 @@ def parse_args() -> argparse.Namespace:
         type=float,
         nargs="+",
         default=None,
-        help="Valores de alpha a evaluar (default: linspace(0, 1, 21)).",
+        help="Valores de alpha a evaluar (default: linspace(0, 1, 51)).",
+    )
+    parser.add_argument(
+        "--beta-grid",
+        type=float,
+        nargs="+",
+        default=None,
+        help="Valores de β para la frontera α*(β)=argmax_α [β·NDCG@K+(1-β)·Cov@K] "
+        "(default: linspace(0, 1, 21)).",
     )
     parser.add_argument(
         "--experiment",
@@ -96,13 +104,13 @@ def parse_args() -> argparse.Namespace:
         "--k-neighbors",
         type=int,
         default=20,
-        help="Vecinos para CBAttention.",
+        help="Vecinos para CFAttention.",
     )
     parser.add_argument(
         "--min-sim",
         type=float,
         default=0.0,
-        help="Similitud minima para CBAttention.",
+        help="Similitud minima para CFAttention.",
     )
     parser.add_argument(
         "--save-dir",
@@ -135,8 +143,7 @@ def main() -> None:
     A = pd.read_parquet(matrices_dir / "A.parquet")
     X = pd.read_parquet(matrices_dir / "X.parquet")
     Y = pd.read_parquet(matrices_dir / "Y.parquet")
-    R = pd.read_parquet(matrices_dir / "R.parquet")
-    logger.info(f"  A: {A.shape}  X: {X.shape}  Y: {Y.shape}  R: {R.shape}")
+    logger.info(f"  A: {A.shape}  X: {X.shape}  Y: {Y.shape}")
 
     # ── Ground truth ────────────────────────────────────────────────────── #
     logger.info("Construyendo ground truth desde splits/test.parquet…")
@@ -150,12 +157,12 @@ def main() -> None:
     logger.info(f"  {n_test_users:,} usuarios de test con pueblos en A")
 
     # ── Fit modelos base ─────────────────────────────────────────────────── #
-    logger.info("Entrenando CBAttention…")
-    cba = CBAttention(k_neighbors=args.k_neighbors, min_sim=args.min_sim)
+    logger.info("Entrenando CFAttention…")
+    cba = CFAttention(k_neighbors=args.k_neighbors, min_sim=args.min_sim)
     t0 = time.perf_counter()
     cba.fit(X, A)
     cba_fit_time = time.perf_counter() - t0
-    logger.info(f"  CBAttention fit: {cba_fit_time:.1f}s")
+    logger.info(f"  CFAttention fit: {cba_fit_time:.1f}s")
 
     logger.info("Entrenando CBQuality…")
     cbq = CBQuality()
@@ -166,7 +173,7 @@ def main() -> None:
 
     # ── Fit hibrido (precomputa score_stack para los dos modelos) ────────── #
     logger.info("Entrenando HybridFusion (precomputando score_stack)…")
-    hybrid = HybridFusion({"CBAttention": cba, "CBQuality": cbq})
+    hybrid = HybridFusion({"CFAttention": cba, "CBQuality": cbq})
     t0 = time.perf_counter()
     hybrid.fit(A)
     hybrid_fit_time = time.perf_counter() - t0
@@ -188,14 +195,13 @@ def main() -> None:
         "A_shape": str(A.shape),
         "X_shape": str(X.shape),
         "Y_shape": str(Y.shape),
-        "R_shape": str(R.shape),
         "n_test_users": n_test_users,
     }
 
     # ── Persistencia ─────────────────────────────────────────────────────── #
     args.save_dir.mkdir(parents=True, exist_ok=True)
     hybrid_path = args.save_dir / "hybrid.joblib"
-    cba_path = args.save_dir / "cbattention.joblib"
+    cba_path = args.save_dir / "cfattention.joblib"
     cbq_path = args.save_dir / "cbquality.joblib"
     joblib.dump(hybrid, hybrid_path)
     joblib.dump(cba, cba_path)
@@ -217,7 +223,7 @@ def main() -> None:
         mlflow.log_params(dataset_params)
         mlflow.log_params(
             {
-                "base_models": "CBAttention,CBQuality",
+                "base_models": "CFAttention,CBQuality",
                 "alpha_grid": ",".join(f"{a:.4f}" for a in alpha_grid),
                 "n_alphas": len(alpha_grid),
                 "k_values": ",".join(str(k) for k in args.k),
@@ -293,10 +299,54 @@ def main() -> None:
         print(f"\n── K = {k} ──")
         print(sub.to_string(float_format=lambda x: f"{x:.4f}"))
 
+    # ── Frontera α*(β) ───────────────────────────────────────────────────── #
+    # El óptimo del objetivo escalarizado f(α)=β·NDCG@K+(1-β)·Cov@K se obtiene
+    # por barrido: α*(β) = argmax_α f(α). No se requiere metaheurística porque
+    # hay un solo parámetro escalar α ∈ [0, 1].
+    beta_grid = (
+        np.asarray(args.beta_grid, dtype=float)
+        if args.beta_grid is not None
+        else np.linspace(0.0, 1.0, 21)
+    )
+    frontier: list[dict] = []
+    for k in args.k:
+        sub = results_df[results_df["K"] == k]
+        alphas = sub["alpha"].to_numpy()
+        ndcg = sub["ndcg"].to_numpy()
+        cov = sub["coverage"].to_numpy()
+        for beta in beta_grid:
+            f = beta * ndcg + (1.0 - beta) * cov
+            i = int(np.argmax(f))
+            frontier.append(
+                {
+                    "K": k,
+                    "beta": float(beta),
+                    "alpha_star": float(alphas[i]),
+                    "f": float(f[i]),
+                    "ndcg": float(ndcg[i]),
+                    "coverage": float(cov[i]),
+                }
+            )
+    frontier_df = pd.DataFrame(frontier)
+
+    print("\n" + "=" * 80)
+    print("FRONTERA α*(β) — argmax_α [β·NDCG@K + (1-β)·Cov@K]")
+    print("=" * 80)
+    for k in args.k:
+        print(f"\n── K = {k} ──")
+        print(
+            frontier_df[frontier_df["K"] == k]
+            .drop(columns="K")
+            .to_string(index=False, float_format=lambda x: f"{x:.4f}")
+        )
+
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         results_df.to_csv(args.output, index=False)
+        frontier_path = args.output.with_name(args.output.stem + "_frontier.csv")
+        frontier_df.to_csv(frontier_path, index=False)
         logger.info(f"\nResultados guardados en {args.output}")
+        logger.info(f"Frontera α*(β) guardada en {frontier_path}")
 
 
 if __name__ == "__main__":

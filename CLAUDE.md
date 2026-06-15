@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Thesis project: **"Sistema de Recomendación Híbrido para Pueblos Mágicos: Análisis de Aspectos y Optimización Metaheurística"** — Hybrid Recommender System for Mexican Pueblos Mágicos using the REST-MEX dataset (79,264 reviews, 9,582 users, 48 Pueblos Mágicos). Sparsity: 90.32%; strong rating imbalance (mean: 4.41, 61.3% five-star).
+Thesis project: **"Sistema de Recomendación Híbrido para Pueblos Mágicos: Análisis de Aspectos y Optimización del Trade-off Relevancia–Cobertura"** — Hybrid Recommender System for Mexican Pueblos Mágicos using the REST-MEX dataset (79,264 reviews, 9,582 users, 48 Pueblos Mágicos). Sparsity: 90.32%; strong rating imbalance (mean: 4.41, 61.3% five-star).
 
 The thesis document lives in `reports/Tesis/` (main file: `gha_tesis_26.tex`, chapters in `chapters/`, bibliography in `references.bib`).
 
@@ -26,7 +26,7 @@ uv run scripts/split_dataset.py
 uv run scripts/run_aspects.py --splitter punkt --batch-size 64 --device cuda
 uv run scripts/build_matrices.py
 uv run scripts/run_models.py --k 5 10 20
-uv run scripts/run_optimization.py --metric ndcg --k 5 10 20
+uv run scripts/run_hybrid_alpha.py --k 5 10 20 --beta-grid 0 0.25 0.5 0.75 1  # barrido α + frontera α*(β)
 ```
 
 ## Data Pipeline
@@ -35,9 +35,9 @@ uv run scripts/run_optimization.py --metric ndcg --k 5 10 20
 filtered_dataset.parquet
   → split_dataset.py      → splits/{train,test,excluded}.parquet   (last-month-out per user)
   → run_aspects.py        → absa/{punkt|char}_aspect_sentiment.parquet
-  → build_matrices.py     → matrices/{A,X,Y,R}.parquet
-  → run_models.py         → evaluation metrics (P@K, R@K, NDCG@K, MRR, ILD, Coverage)
-  → run_optimization.py   → optimal weights w* ∈ Δ^{M-1} via PSO / DE / BO
+  → build_matrices.py     → matrices/{A,X,Y}.parquet
+  → run_models.py         → baseline metrics (P@K, R@K, NDCG@K, MRR, ILD, Coverage)
+  → run_hybrid_alpha.py   → barrido de α + frontera de Pareto α*(β)
 ```
 
 **Working dataset** (`data/rest-mex/processed/filtered_dataset.parquet`): users with ≥3 distinct pueblos, pueblos with ≥10 distinct places. Schema: `Author`, `Titulo`, `Review`, `Calificacion` (1–5 float), `FechaEstadia` (datetime), `Pueblo`, `Estado`, `Tipo` (Hotel/Restaurant/Attractive), `Lugar`.
@@ -54,26 +54,37 @@ mtrs/
 │   └── extractor.py    # AspectSentimentExtractor — orchestrates both HF pipelines
 ├── aggregation/    # Matrix computation
 │   └── matrices.py     # compute_rating_matrix(), compute_user_aspect_importance(),
-│                       # compute_pueblo_aspect_quality(), compute_user_pueblo_aspect_sentiment()
-├── models/         # Recommender algorithms
-│   ├── base.py         # BaseRecommender ABC: fit(), predict(), recommend()
-│   ├── cf_classic.py   # CFClassic — SVD with biases (Koren et al. 2009)
-│   ├── cf_multicriteria.py  # CFMultiCriteria — aspect-aware user-user CF (Musto et al. 2017)
-│   ├── cb_quality.py   # CBQuality — content-based via aspect quality (Zhang et al. 2014)
-│   ├── cb_attention.py # CBAttention — user-user CF via cosine similarity on X matrix
-│   └── hybrid_linear_fusion.py  # HybridFusion — convex combination w ∈ Δ^{M-1}
-└── optimization/   # Metaheuristic weight optimization
-    ├── base.py         # WeightOptimizer ABC, OptimizationResult, fast vectorized evaluate_weights()
-    ├── pso.py          # PSOOptimizer — Particle Swarm (Kennedy & Eberhart, 1995)
-    ├── differential_evolution.py  # DEOptimizer — DE/best/1/bin via scipy (Storn & Price, 1997)
-    └── bayesian.py     # BayesianOptimizer — GP surrogate + EI acquisition (Snoek et al., 2012)
+│                       # compute_pueblo_aspect_quality() (+ Zhang ablation variants)
+└── models/         # Recommender algorithms
+    ├── base.py         # BaseRecommender ABC: fit(), predict(), recommend()
+    ├── cf_classic.py   # CFClassic — SVD with biases (Koren et al. 2009) — baseline
+    ├── cb_quality.py   # CBQuality — content-based via aspect quality (Zhang et al. 2014) — CB branch
+    ├── cf_attention.py # CFAttention — user-user CF via similarity on X matrix — CF branch
+    └── hybrid_linear_fusion.py  # HybridFusion — convex combination (single-α for M=2)
 ```
+
+### Hybrid Architecture (single-parameter convex fusion)
+
+The system follows the poster (`docs/plantilla-poster/poster.tex`): two
+aspect-based models are fused with a single weight $\alpha$, and `CFClassic`
+is reported only as an individual baseline (outside the hybrid).
+
+- **CF branch** = `CFAttention` (user-user similarity in $X$)
+- **CB branch** = `CBQuality` (matching $X \cdot Y$)
+- **Fusion**: $\hat{y}_{u,p}(\alpha) = \alpha\,\hat{y}^{\mathrm{CFAttention}}_{u,p} + (1-\alpha)\,\hat{y}^{\mathrm{CBQuality}}_{u,p}, \quad \alpha \in [0,1]$
+- **Objective** (scalarized relevance vs. coverage, $\beta$ a parameter of $f$):
+  $$f(\alpha) = \beta\,\mathrm{NDCG@K}(\alpha) + (1-\beta)\,\mathrm{Cov@K}(\alpha)$$
+- **Optimization = sweep.** With a single scalar parameter $\alpha \in [0,1]$
+  there is no need for metaheuristics: `run_hybrid_alpha.py` sweeps $\alpha$ over
+  a grid, and the optimum is $\alpha^{\star}(\beta) = \arg\max_\alpha f(\alpha)$
+  read directly off the swept curve. Sweeping $\beta$ traces the Pareto frontier
+  $\alpha^{\star}(\beta)$ ($\beta=1$ → pure NDCG@K, $\beta=0$ → pure Cov@K).
 
 ### Key Mathematical Formulations
 
 - **CFClassic**: $\hat{r}_{u,p} = \mu + b_u + b_p + \mathbf{p}_u \cdot \mathbf{q}_p$ (SGD + L2 reg)
 - **CBQuality**: $\hat{r}_{u,p} = \sum_j X_{u,j} Y_{p,j} / \sum_j X_{u,j}$
-- **CBAttention**: $\hat{r}_{u,p} = \mu_u + \sum_v \text{sim}(u,v)(A_{v,p} - \mu_v) / \sum_v |\text{sim}(u,v)|$ where $\text{sim} = \cos(\mathbf{X}_u, \mathbf{X}_v)$
+- **CFAttention**: $\hat{r}_{u,p} = \mu_u + \sum_v \text{sim}(u,v)(A_{v,p} - \mu_v) / \sum_v |\text{sim}(u,v)|$ where $\text{sim} = \cos(\mathbf{X}_u, \mathbf{X}_v)$
 
 ### ABSA Models
 
@@ -88,7 +99,6 @@ mtrs/
 | $A$ | users × pueblos | Mean rating per user-pueblo pair |
 | $X$ | users × aspects | User aspect importance (sigmoid-shifted frequency) |
 | $Y$ | pueblos × aspects | Pueblo aspect quality (volume-weighted sentiment) |
-| $R$ | (users × pueblos) × aspects | User-pueblo-aspect sentiment (MultiIndex) |
 
 ## Thesis (LaTeX)
 
