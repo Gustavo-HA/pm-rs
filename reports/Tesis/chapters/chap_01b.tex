@@ -130,9 +130,9 @@ La aplicación del filtrado iterativo con $\tau_u = 3$ y $\tau_p = 10$ reduce el
 
 La distribución de pueblos en el dataset filtrado presenta un marcado desbalance geográfico. Tulum es el pueblo con mayor representación ($10{,}051$ títulos únicos), seguido de Isla Mujeres ($6{,}082$) y San Cristóbal de las Casas ($4{,}902$), mientras que pueblos como Tecate ($175$), San Sebastián del Oeste ($193$) y Santiago ($242$) tienen una representación considerablemente menor.
 
-En términos de la matriz de utilidad para el sistema de recomendación---donde las filas representan usuarios y las columnas Pueblos Mágicos---la dispersión (\textit{sparsity}) se calcula como:
+En términos de la matriz de utilidad para el sistema de recomendación, la dispersión (\textit{sparsity}) se calcula como:
 \begin{equation} \label{eq:sparsity}
 	\text{sparsity} = 1 - \frac{|\{(u, p) : \exists\, r \in \mathcal{D}'\}|}{|\mathcal{U}| \times |\mathcal{P}|} = 1 - \frac{n_{\text{interacciones}}}{9{,}582 \times 48} \approx 90.32\%
 \end{equation}
 
-Esta dispersión del $90.32\%$ implica que cada usuario ha interactuado, en promedio, con menos de 5 de los 48 pueblos disponibles. En cuanto a las calificaciones, la media global es $\bar{r} = 4.41$ con el $61.3\%$ de las calificaciones siendo de 5 estrellas, reflejando el sesgo positivo característico de las plataformas de reseñas turísticas. Estos desafíos---alta dispersión y desbalance en calificaciones---motivan la adopción de un enfoque híbrido que combine señales colaborativas con información semántica extraída de las reseñas textuales, como se detalla en los capítulos subsecuentes.
+Esta dispersión del $90.32\%$ implica que cada usuario ha interactuado, en promedio, con menos de 5 de los 48 pueblos disponibles. En cuanto a las calificaciones, la media global es $\bar{r} = 4.41$ con el $61.3\%$ de las calificaciones siendo de 5 estrellas, reflejando el sesgo positivo característico de las plataformas de reseñas turísticas. Este desafío motiva a la adopción de un enfoque híbrido que combine señales colaborativas con información semántica extraída de las reseñas textuales, como se detalla en los capítulos subsecuentes.

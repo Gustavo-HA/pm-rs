@@ -1,6 +1,6 @@
 \chapter{Marco teórico} \label{chap:background}
 
-En este capítulo se presentan los fundamentos teóricos que sustentan el desarrollo de la metodología en este trabajo. Se abordan cinco ejes principales: los sistemas de recomendación junto con sus métricas de evaluación (Sección~\ref{sec:recsys}); los fundamentos de procesamiento de lenguaje natural sobre los que se construye la extracción de aspectos y sentimientos a partir de las reseñas (Sección~\ref{sec:nlp}); los modelos de recomendación que incorporan la información extraída por ABSA como señal explícita (Sección~\ref{sec:absa_rs}); las técnicas de optimización metaheurística empleadas para la fusión de componentes (Sección~\ref{sec:metaheuristic}); y los fundamentos de explicabilidad en sistemas de recomendación (Sección~\ref{sec:xai}).
+En este capítulo se presentan los fundamentos teóricos que sustentan el desarrollo de la metodología en este trabajo. Se abordan cuatro frentes: los sistemas de recomendación junto con sus métricas de evaluación (Sección~\ref{sec:recsys}); la optimización multiobjetivo y la eficiencia de Pareto, marco en el que se formaliza el \textit{trade-off} relevancia--cobertura que persigue este trabajo (Sección~\ref{sec:moo}); los fundamentos de procesamiento de lenguaje natural sobre los que se construye la extracción de aspectos y sentimientos a partir de las reseñas (Sección~\ref{sec:nlp}); y los modelos de recomendación que incorporan la información extraída por ABSA como señal explícita (Sección~\ref{sec:absa_rs}).
 
 %% ============================================================
 %% 2.1  SISTEMAS DE RECOMENDACIÓN
@@ -160,7 +160,9 @@ En esta tesis se adopta una estrategia de \textbf{combinación ponderada}, donde
 \end{equation}
 donde $\alpha \in [0, 1]$ controla la contribución relativa de cada componente. Esta formulación se extiende naturalmente a un vector de pesos $\boldsymbol{\alpha} = (\alpha_1, \alpha_2, \ldots, \alpha_M)$ cuando se combinan $M$ señales de recomendación, sujeto a $\sum_{m=1}^{M} \alpha_m = 1$.
 
-La determinación de los pesos óptimos constituye en sí un problema de optimización no convexo, cuya solución se aborda mediante técnicas metaheurísticas (Sección \ref{sec:metaheuristic}). Esta aproximación, donde los aspectos y sentimientos extraídos por el componente NLP enriquecen las características del sistema colaborativo, ha demostrado ser efectiva en dominios donde la información textual complementa las calificaciones numéricas. \citep{musto_multi-criteria_2017} mostraron que un FC multi-criterio alimentado con sentimientos por aspecto extraídos automáticamente de reseñas supera tanto a algoritmos de un solo criterio como a técnicas de factorización matricial. De manera similar, \citep{zhang_explicit_2014} propusieron el \textit{Explicit Factor Model} (EFM), que integra factores explícitos (aspectos y opiniones extraídos de reseñas) con factores latentes en un modelo unificado, demostrando mejoras tanto en predicción de calificaciones como en la calidad de las explicaciones generadas.
+En esta tesis el híbrido se restringe a la combinación de $M=2$ componentes basados en aspectos, de modo que el vector de pesos puede ser reducido a un único escalar $\alpha \in [0, 1]$. Esta reducción dimensional es determinante: la calibración del peso óptimo no constituye un problema de optimización en un espacio de alta dimensión que demande técnicas metaheurísticas, sino un barrido unidimensional sobre $\alpha$ del que el óptimo se lee directamente. Más aún, la selección de $\alpha$ no responde a un único criterio, sino al compromiso entre relevancia y cobertura, lo que sitúa el problema en el marco de la optimización multiobjetivo desarrollado en la Sección~\ref{sec:moo}.
+
+La integración de señales aspecto-sentimiento en el recomendador, donde los aspectos y sentimientos extraídos por el componente NLP enriquecen tanto los perfiles de usuario como los de ítem, ha demostrado ser efectiva en dominios donde la información textual complementa las calificaciones numéricas. \citet{musto_multi-criteria_2017} mostraron que un FC multi-criterio alimentado con sentimientos por aspecto extraídos automáticamente de reseñas supera tanto a algoritmos de un solo criterio como a técnicas de factorización matricial. Por su parte, \citet{zhang_explicit_2014} propusieron el \textit{Explicit Factor Model} (EFM), que integra factores explícitos derivados de los aspectos y las opiniones de las reseñas con factores latentes en un modelo unificado. Este último enfoque, que sustenta la propuesta de esta tesis, se analiza en detalle en la Sección~\ref{sec:absa_rs}.
 
 % --------------------------------------------------------------
 \subsection{Problema del arranque en frío y dispersión} \label{subsec:cold_start}
@@ -240,7 +242,77 @@ La \textit{cobertura de catálogo} cuantifica la fracción de ítems del sistema
 Esta métrica es relevante dado el desbalance del dataset REST-MEX, en el que un subconjunto reducido de pueblos concentra la mayoría de las reseñas: un SR podría obtener valores aceptables de NDCG@$K$ recomendando casi exclusivamente esos pueblos populares, sacrificando la exposición del catálogo en su conjunto.
 
 %% ============================================================
-%% 2.2  PROCESAMIENTO DE LENGUAJE NATURAL
+%% 2.2  OPTIMIZACIÓN MULTIOBJETIVO Y EFICIENCIA DE PARETO
+%% ============================================================
+\section{Optimización multiobjetivo y eficiencia de Pareto} \label{sec:moo}
+
+El análisis de las métricas de evaluación reveló que un SR no puede ser juzgado por un único criterio: la relevancia del \textit{ranking} y la cobertura del catálogo son objetivos en conflicto que ningún sistema maximiza simultáneamente. Esta situación es un caso particular de un problema de \textbf{optimización multiobjetivo} (MOO), cuyo marco formal es la \textit{eficiencia de Pareto}. Este marco proporciona las herramientas para razonar sobre soluciones de compromiso. El concepto fue introducido por el economista Vilfredo Pareto en el contexto de la economía del bienestar, donde una asignación de recursos se considera eficiente cuando no es posible mejorar la situación de un agente sin perjudicar la de otro \citep{barr2020economics}, y posteriormente se generalizó como criterio de optimalidad en la teoría de la optimización vectorial \citep{miettinen1999nonlinear}. Esta sección formaliza el problema multiobjetivo, las nociones de dominancia y frente de Pareto, y el método de escalarización que se emplea en este trabajo para resolver el \textit{trade-off} relevancia--cobertura.
+
+% --------------------------------------------------------------
+\subsection{Planteamiento del problema multiobjetivo} \label{subsec:moo_problem}
+
+Un problema de optimización multiobjetivo busca optimizar de forma conjunta $k \geq 2$ funciones objetivo sobre un conjunto factible. Adoptando, sin pérdida de generalidad, la convención de minimización (todo objetivo a maximizar $f_i$ se reescribe como $-f_i$), se formula como:
+\begin{equation} \label{eq:moo}
+	\min_{\mathbf{x} \in \Omega} \; \mathbf{F}(\mathbf{x}) = \bigl(f_1(\mathbf{x}), f_2(\mathbf{x}), \ldots, f_k(\mathbf{x})\bigr),
+\end{equation}
+donde $\mathbf{x} = (x_1, \ldots, x_n)$ es el \textit{vector de decisión}, $\Omega \subseteq \mathbb{R}^n$ es el \textit{espacio de decisión factible} (definido por las restricciones del problema) y $\mathbf{F}: \Omega \to \mathbb{R}^k$ aplica cada solución a su \textit{vector de objetivos}. La imagen $\mathcal{Z} = \mathbf{F}(\Omega) \subseteq \mathbb{R}^k$ se denomina \textit{región objetivo factible} y es el espacio en el que se evalúan los compromisos entre criterios \citep{miettinen1999nonlinear, deb2011multi}. A diferencia de la optimización escalar ($k=1$), en la que el orden total de $\mathbb{R}$ induce un único óptimo, en $\mathbb{R}^k$ con $k \geq 2$ no existe un orden total natural entre vectores, por lo que el problema (\ref{eq:moo}) carece, en general, de una solución única que minimice todos los objetivos a la vez.
+
+% --------------------------------------------------------------
+\subsection{Dominancia y optimalidad de Pareto} \label{subsec:pareto}
+
+El orden parcial que sustituye al orden total escalar es la \textbf{relación de dominancia de Pareto}. Dados dos vectores de objetivos $\mathbf{u}, \mathbf{v} \in \mathbb{R}^k$, se dice que $\mathbf{u}$ \textit{domina} a $\mathbf{v}$ (denotado $\mathbf{u} \prec \mathbf{v}$) si y solo si $\mathbf{u}$ no es peor en ningún objetivo y es estrictamente mejor en al menos uno:
+\begin{equation} \label{eq:dominance}
+	\mathbf{u} \prec \mathbf{v} \iff \bigl(\forall\, i \in \{1, \ldots, k\}:\; u_i \leq v_i\bigr) \;\wedge\; \bigl(\exists\, i_0 \in \{1, \ldots, k\}:\; u_{i_0} < v_{i_0}\bigr).
+\end{equation}
+A partir de esta relación, una solución $\mathbf{x}^{\star} \in \Omega$ es \textbf{Pareto-óptima} (o eficiente) si no existe ninguna otra solución factible que la domine en el espacio de objetivos:
+\begin{equation} \label{eq:pareto_optimal}
+	\mathbf{x}^{\star} \text{ es Pareto-óptima} \iff \nexists\, \mathbf{x} \in \Omega \;:\; \mathbf{F}(\mathbf{x}) \prec \mathbf{F}(\mathbf{x}^{\star}).
+\end{equation}
+Intuitivamente, en una solución Pareto-óptima no es posible mejorar ningún objetivo sin degradar simultáneamente al menos otro. Se distingue además la \textbf{optimalidad débil de Pareto}, que relaja la condición exigiendo que no exista $\mathbf{x}$ con $f_i(\mathbf{x}) < f_i(\mathbf{x}^{\star})$ para \emph{todos} los objetivos a la vez; toda solución Pareto-óptima es débilmente óptima, pero no a la inversa \citep{miettinen1999nonlinear}.
+
+El conjunto de todas las soluciones Pareto-óptimas en el espacio de decisión se denomina \textbf{conjunto de Pareto}, $\mathcal{P} = \{\mathbf{x}^{\star} \in \Omega : \mathbf{x}^{\star} \text{ es Pareto-óptima}\}$, y su imagen en el espacio de objetivos constituye el \textbf{frente de Pareto}:
+\begin{equation} \label{eq:pareto_front}
+	\mathcal{PF} = \mathbf{F}(\mathcal{P}) = \{\mathbf{F}(\mathbf{x}^{\star}) : \mathbf{x}^{\star} \in \mathcal{P}\} \subseteq \mathcal{Z}.
+\end{equation}
+El frente de Pareto es el lugar geométrico de los compromisos eficientes: la frontera de la región factible $\mathcal{Z}$ más allá de la cual no existen soluciones alcanzables. La Figura~\ref{fig:pareto_front} ilustra estos conceptos para un problema biobjetivo. Los puntos $p_1$ y $p_2$ pertenecen al frente (línea gruesa) y son no dominados; en cambio, el punto interior $p_3$ está dominado por $p_1$, que para igual valor de $f_1$ alcanza un menor $f_2$. Resolver un problema multiobjetivo consiste, entonces, en identificar (o aproximar) el frente de Pareto y seleccionar sobre él la solución que mejor refleje las preferencias del decisor.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.6\textwidth]{figures/frente_pareto.pdf}
+	\caption[Frente de Pareto de un problema biobjetivo]{Frente de Pareto (línea gruesa) de un problema con dos objetivos a minimizar. El área coloreada $T$ es la imagen de la función objetivo; los puntos $p_1$ y $p_2$ son soluciones no dominadas sobre el frente, mientras que $p_3$ es dominado por $p_1$. En este ejemplo se considera un caso de minimización. Fuente: \href{https://es.wikipedia.org/wiki/Eficiencia_de_Pareto#/media/Archivo:FrentePareto.svg}{Wikimedia Commons, licencia CC BY-SA 3.0}.}
+	\label{fig:pareto_front}
+\end{figure}
+
+% --------------------------------------------------------------
+\subsection{Escalarización por suma ponderada} \label{subsec:scalarization}
+
+Dado que el frente de Pareto contiene, en general, infinitas soluciones, los métodos de resolución de problemas MOO deben incorporar información de preferencia para seleccionar puntos concretos. Las técnicas \textit{a priori} de \textbf{escalarización} transforman el problema vectorial (\ref{eq:moo}) en una familia de problemas escalares parametrizados, cada uno de los cuales puede resolverse con herramientas de optimización estándar \citep{miettinen1999nonlinear, marler2004survey}. El método de escalarización más difundido es la \textbf{suma ponderada}, que agrega los objetivos en una combinación convexa:
+\begin{equation} \label{eq:weighted_sum}
+	\min_{\mathbf{x} \in \Omega} \; \sum_{i=1}^{k} w_i\, f_i(\mathbf{x}), \qquad w_i \geq 0, \quad \sum_{i=1}^{k} w_i = 1,
+\end{equation}
+donde los pesos $w_i$ codifican la importancia relativa asignada a cada objetivo. La propiedad fundamental que justifica el método es que, si todos los pesos son estrictamente positivos ($w_i > 0$), la solución de (\ref{eq:weighted_sum}) es Pareto-óptima; recíprocamente, cuando la región objetivo factible es \textit{convexa}, todo punto del frente de Pareto puede obtenerse para alguna elección de pesos, de modo que barrer el espacio de pesos reconstruye el frente completo \citep{miettinen1999nonlinear}. Esta garantía deja de cumplirse en problemas no convexos: las porciones cóncavas del frente son inalcanzables por la suma ponderada, limitación bien documentada en la literatura \citep{marler2004survey}. Pese a ello, la suma ponderada sigue siendo el método de escalarización de referencia por su transparencia interpretativa y su bajo costo computacional.
+
+% --------------------------------------------------------------
+\subsection{Aplicación al trade-off relevancia--cobertura} \label{subsec:tradeoff}
+
+En esta tesis, el problema de seleccionar el peso de fusión del recomendador híbrido se formula como un problema biobjetivo ($k=2$) en el que se busca \emph{maximizar} simultáneamente la relevancia y la cobertura:
+\begin{equation} \label{eq:moo_recsys}
+	\max_{\alpha \in [0,1]} \; \bigl(\mathrm{NDCG@}K(\alpha),\; \mathrm{Cov@}K(\alpha)\bigr),
+\end{equation}
+donde el vector de decisión se reduce a un \emph{único escalar} $\alpha$, el peso de la fusión convexa de la Ecuación~(\ref{eq:hybrid}). Aplicando la escalarización por suma ponderada (\ref{eq:weighted_sum}) con un peso de preferencia $\beta \in [0,1]$, el problema vectorial se convierte en la maximización del objetivo escalar:
+\begin{equation} \label{eq:scalarization}
+	f(\alpha; \beta) = \beta\, \mathrm{NDCG@}K(\alpha) + (1 - \beta)\, \mathrm{Cov@}K(\alpha),
+\end{equation}
+en el que $\beta = 1$ recupera la optimización pura de relevancia y $\beta = 0$ la de cobertura. Como ambos objetivos se ponderan de forma no negativa, el maximizador de (\ref{eq:scalarization}) es una solución Pareto-óptima del problema (\ref{eq:moo_recsys}).
+
+La particularidad que distingue este planteamiento es que el espacio de decisión es unidimensional. En consecuencia, el óptimo para cada nivel de preferencia,
+\begin{equation} \label{eq:alpha_star}
+	\alpha^{\star}(\beta) = \arg\max_{\alpha \in [0,1]} \; f(\alpha; \beta),
+\end{equation}
+se obtiene mediante un \textbf{barrido unidimensional}: se evalúa $f(\alpha; \beta)$ sobre una rejilla de valores de $\alpha$ y se lee el máximo directamente de la curva. Este procedimiento es exacto hasta la resolución de la rejilla y computacionalmente trivial, por lo que \emph{no se requiere recurrir a metaheurísticas} (algoritmos genéticos, enjambre de partículas, evolución diferencial u optimización bayesiana), reservadas para espacios de búsqueda de alta dimensión, multimodales o no diferenciables donde la enumeración exhaustiva es inviable. Finalmente, la trayectoria $\alpha^{\star}(\beta)$ obtenida al variar $\beta \in [0,1]$ recorre el frente de Pareto del sistema y constituye el resultado central del \textit{trade-off} relevancia--cobertura que da título a este trabajo.
+
+%% ============================================================
+%% 2.3  PROCESAMIENTO DE LENGUAJE NATURAL
 %% ============================================================
 \section{Procesamiento de Lenguaje Natural} \label{sec:nlp}
 
@@ -298,7 +370,7 @@ En este trabajo se adopta el segmentador no supervisado \textbf{Punkt} \citep{ki
 	\item \textbf{Brevedad del tipo.} Las abreviaturas tienden a ser cortas; la probabilidad de que un tipo $w$ sea abreviatura decae con su longitud.
 	\item \textbf{Puntos internos.} Los tipos que contienen puntos en su interior (e.g., \textit{a.m.}) son fuertes candidatos a abreviatura.
 \end{itemize}
-La combinación multiplicativa de estos tres factores produce un \textit{score} de abreviatura por tipo, sobre el que un umbral global decide la clasificación. Una segunda fase a nivel de \textit{token} resuelve los casos restantes (números ordinales, iniciales y palabras que pueden ser tanto abreviaturas como ordinarias) usando rasgos contextuales como la capitalización de la palabra siguiente. \citet{kiss_unsupervised_2006} reportan una precisión media del $98.74\%$ sobre corpus periodísticos en once idiomas --- incluido el español --- sin ninguna adaptación específica al idioma, lo que justifica su elección como segmentador en este trabajo, dado el carácter multilingüe-agnóstico de su entrenamiento y la ausencia de un corpus de reseñas turísticas en español con fronteras de oración anotadas. La salida de Punkt define los fragmentos $\{t_1, \ldots, t_F\}$ sobre los que se aplican posteriormente la detección de aspecto y la clasificación de sentimiento.
+La combinación multiplicativa de estos tres factores produce un \textit{score} de abreviatura por tipo, sobre el que un umbral global decide la clasificación. Una segunda fase a nivel de \textit{token} resuelve los casos restantes (números ordinales, iniciales y palabras que pueden ser tanto abreviaturas como ordinarias) usando rasgos contextuales como la capitalización de la palabra siguiente. \citet{kiss_unsupervised_2006} reportan una precisión media del $98.74\%$ sobre corpus periodísticos en once idiomas (incluyendo el español) sin ninguna adaptación específica al idioma, lo que justifica su elección como segmentador en este trabajo, dado el carácter multilingüe-agnóstico de su entrenamiento y la ausencia de un corpus de reseñas turísticas en español con fronteras de oración anotadas. La salida de Punkt define los fragmentos $\{t_1, \ldots, t_F\}$ sobre los que se aplican posteriormente la detección de aspecto y la clasificación de sentimiento.
 
 % --------------------------------------------------------------
 \subsection{Clasificación zero-shot vía NLI} \label{subsec:zero_shot}
@@ -320,102 +392,40 @@ La subtarea ASC se formula como un problema de clasificación supervisada sobre 
 \end{equation}
 donde $\mathcal{S}$ es el conjunto de clases. Los parámetros de la cabeza, junto con los del codificador, se ajustan minimizando la entropía cruzada sobre un corpus etiquetado de la tarea \textit{downstream}. Este esquema transfiere el conocimiento lingüístico capturado durante el preentrenamiento a tareas con relativamente pocos ejemplos etiquetados, superando consistentemente a las arquitecturas recurrentes y a los enfoques léxicos en clasificación de sentimiento \citep{do_deep_2019}.
 
-Para el español existen varios modelos base ampliamente utilizados --- BETO, MarIA, RoBERTuito --- que difieren en el corpus de preentrenamiento (Wikipedia, BNE, Twitter) y, consecuentemente, en el dominio en el que mejor generalizan \citep{do_deep_2019}. El modelo seleccionado en este trabajo, \textsc{vg055/roberta-base-bne-finetuned-Trip\-Advisor\-Domain\-Adaptation}, parte de un RoBERTa-base preentrenado sobre la Biblioteca Nacional de España (BNE) y posteriormente adaptado al dominio TripAdvisor mediante \textit{fine-tuning} para clasificación de sentimiento de granularidad fina, produciendo cinco clases ordinales:
+Para el español existen varios modelos base ampliamente utilizados --- BETO \citep{CaneteCFP2020}, RoBERTuito \citep{perez-etal-2022-robertuito} --- que difieren en el corpus de preentrenamiento y, consecuentemente, en el dominio en el que mejor generalizan \citep{do_deep_2019}. El modelo seleccionado en este trabajo\footnote{\url{https://huggingface.co/vg055/roberta-base-bne-finetuned-TripAdvisorDomainAdaptation-finetuned-e2-RestMex2023-polaridadDA-V1}} parte de un RoBERTa base \citep{DBLP:journals/corr/abs-1911-02116} preentrenado sobre la Biblioteca Nacional de España (BNE) y posteriormente adaptado al dominio TripAdvisor mediante \textit{fine-tuning} para clasificación de sentimiento de granularidad fina, produciendo cinco clases ordinales:
 \begin{equation*}
 	\mathcal{S} = \{\text{Muy Negativo}, \text{Negativo}, \text{Neutral}, \text{Positivo}, \text{Muy Positivo}\}
 \end{equation*}
-La granularidad de cinco clases preserva información que un esquema ternario $\{\textsc{neg}, \textsc{neu}, \textsc{pos}\}$ colapsaría --- en particular, el contraste entre satisfacción moderada y entusiasmo --- y resulta consistente con la escala de 1 a 5 estrellas del \textit{dataset} REST-MEX, lo que facilita análisis posteriores de coherencia entre $a_{u,i}$ (calificación numérica) y los sentimientos extraídos.
+La granularidad de cinco clases preserva información entre diferentes niveles de satisfacción y resulta consistente con la escala de 1 a 5 estrellas que usualmente se asigna en el dominio turístico.
 
 %% ============================================================
-%% 2.3  SISTEMAS DE RECOMENDACIÓN CON ABSA
+%% 2.4  SISTEMAS DE RECOMENDACIÓN CON ABSA
 %% ============================================================
 \section{Sistemas de recomendación con ABSA} \label{sec:absa_rs}
 
-Una vez que el \textit{pipeline} de NLP descrito en la Sección~\ref{sec:nlp} produce, para cada par (usuario, ítem) y reseña, un conjunto de pares (aspecto, sentimiento), se vuelve posible enriquecer las arquitecturas clásicas de SR con esta información de granularidad fina. La literatura ha explorado dos vías complementarias para integrar las salidas de ABSA en el recomendador: (i) tratar las polaridades aspecto-específicas como \textit{ratings multidimensionales} dentro de un esquema de filtrado colaborativo multicriterio, y (ii) construir representaciones explícitas de \textit{usuario} y de \textit{ítem} en el espacio de aspectos que se combinan con factores latentes en una factorización híbrida. Las dos referencias canónicas que materializan estas vías --- \citet{musto_multi-criteria_2017} y \citet{zhang_explicit_2014} --- constituyen los pilares teóricos de la propuesta híbrida desarrollada en el capítulo de metodología.
+El análisis de sentimientos basado en aspectos produce, para cada reseña asociada a un par usuario-ítem, un conjunto de pares aspecto-sentimiento que indica qué atributos del ítem menciona el usuario y con qué polaridad los valora. Esta información de granularidad fina permite enriquecer a los sistemas de recomendación clásicos, que por sí solos disponen únicamente de una calificación numérica global por interacción y descartan los matices expresados en el texto. El modelo de referencia para incorporar dichas señales es el \textit{Explicit Factor Model} (EFM) propuesto por \citet{zhang_explicit_2014}, cuyas representaciones aspectuales constituyen la base de la propuesta desarrollada en esta tesis.
 
-\subsection{Filtrado colaborativo multicriterio (Musto et al., 2017)} \label{subsec:musto}
+El EFM organiza la información extraída por ABSA en dos matrices que describen, respectivamente, las preferencias de los usuarios y las cualidades de los ítems sobre un espacio común de aspectos. Se denota por $\mathcal{U}$ al conjunto de usuarios, por $\mathcal{I}$ al de ítems y por $\mathcal{A}$ al de aspectos considerados.
 
-\citet{musto_multi-criteria_2017} extienden el FC clásico al sustituir el escalar de calificación $r_{u,i}$ por un vector de \textit{micro-calificaciones} aspecto-específicas $\mathbf{r}_{u,i} = (r_{u,i,1}, \ldots, r_{u,i,|\mathcal{A}|})$, donde $r_{u,i,a} \in [-1, 1]$ se deriva del sentimiento promedio extraído por ABSA sobre las menciones del aspecto $a$ en las reseñas de $u$ acerca de $i$. El conjunto de interacciones queda así organizado como un tensor $\mathbf{R} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{I}| \times |\mathcal{A}|}$.
-
-La predicción se realiza por aspecto mediante FC basado en usuario sobre la rebanada $\mathbf{R}_{:,:,a}$:
-\begin{equation} \label{eq:musto_pred_aspect}
-	\hat{r}_{u,i,a} = \bar{r}_{u,a} + \frac{\displaystyle\sum_{v \in \mathcal{N}_k(u)} \mathrm{sim}_a(u, v) \cdot (r_{v,i,a} - \bar{r}_{v,a})}{\displaystyle\sum_{v \in \mathcal{N}_k(u)} |\mathrm{sim}_a(u, v)|}
+La \textit{matriz de atención del usuario} $\mathbf{X} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{A}|}$ codifica la importancia que cada usuario $u$ concede al aspecto $a$. Su valor crece con la frecuencia con que el usuario menciona ese aspecto en sus reseñas, frecuencia que se transforma mediante una sigmoide para acotar el resultado en el intervalo $[1, N]$, donde $N$ es el extremo superior de la escala de calificación:
+\begin{equation} \label{eq:efm_X}
+	X_{u,a} = 1 + (N - 1) \left(\frac{2}{1 + \exp(-t_{u,a})} - 1\right),
 \end{equation}
-donde $\mathrm{sim}_a$ se computa en el subespacio aspecto-específico (e.g., correlación de Pearson sobre $\{(r_{u,j,a}, r_{v,j,a}) : j \in \mathcal{I}_{u,v}\}$) y $\bar{r}_{u,a}$ es la media del usuario en dicho aspecto. La predicción agregada se obtiene como el promedio (eventualmente ponderado por importancia del aspecto) sobre $\mathcal{A}$:
-\begin{equation} \label{eq:musto_agg}
-	\hat{r}_{u,i} = \frac{1}{|\mathcal{A}|} \sum_{a \in \mathcal{A}} \hat{r}_{u,i,a}
+con $t_{u,a}$ el número de menciones del aspecto $a$ por parte del usuario $u$. La intuición subyacente es que un aspecto mencionado con insistencia revela una preocupación genuina del usuario por ese atributo.
+
+La \textit{matriz de calidad del ítem} $\mathbf{Y} \in \mathbb{R}^{|\mathcal{I}| \times |\mathcal{A}|}$ codifica qué tan bien evaluado está cada ítem $i$ en el aspecto $a$. Para ello combina el sentimiento promedio $s_{i,a}$ que la comunidad expresa sobre ese aspecto con el volumen de menciones $t_{i,a}$ que lo respaldan, de modo que una valoración positiva sostenida por muchas opiniones pesa más que un juicio aislado:
+\begin{equation} \label{eq:efm_Y}
+	Y_{i,a} = 1 + \frac{N - 1}{1 + \exp(-t_{i,a} \cdot s_{i,a})}.
 \end{equation}
-\citet{musto_multi-criteria_2017} reportan que este esquema supera tanto al FC de criterio único como a la factorización matricial clásica en \textit{datasets} de TripAdvisor y Yelp, beneficio atribuible al hecho de que las micro-calificaciones aspectuales descomponen el ruido propio de la calificación global y exponen patrones de preferencia multidimensionales.
 
-\subsection{Modelo de Factores Explícitos --- EFM (Zhang et al., 2014)} \label{subsec:efm}
-
-\citet{zhang_explicit_2014} proponen el \textit{Explicit Factor Model} (EFM), que conjuga factores \emph{explícitos} (extraídos de ABSA) con factores latentes en una factorización unificada que produce, simultáneamente, predicción de \textit{rating} y explicabilidad. El modelo se construye sobre dos matrices derivadas del \textit{pipeline} ABSA:
-
-\begin{itemize}
-	\item \textbf{Matriz de atención del usuario} $\mathbf{X} \in \mathbb{R}^{|\mathcal{U}| \times |\mathcal{A}|}$: codifica la importancia que el usuario $u$ asigna al aspecto $a$, escalando la frecuencia de mención mediante una sigmoide acotada en $[1, N]$:
-	      \begin{equation} \label{eq:efm_X}
-		      X_{u,a} = 1 + (N - 1) \left(\frac{2}{1 + \exp(-t_{u,a})} - 1\right)
-	      \end{equation}
-	      donde $t_{u,a}$ es el conteo de menciones del aspecto $a$ por parte del usuario $u$ y $N$ es el rango superior de la escala.
-
-	\item \textbf{Matriz de calidad del ítem} $\mathbf{Y} \in \mathbb{R}^{|\mathcal{I}| \times |\mathcal{A}|}$: codifica la calidad del ítem $i$ en el aspecto $a$, ponderando el sentimiento promedio $s_{i,a}$ por el volumen de menciones $t_{i,a}$:
-	      \begin{equation} \label{eq:efm_Y}
-		      Y_{i,a} = 1 + \frac{N - 1}{1 + \exp(-t_{i,a} \cdot s_{i,a})}
-	      \end{equation}
-\end{itemize}
-
-La predicción híbrida combina un término explícito --- producto interno entre la atención del usuario y la calidad del ítem en el espacio de aspectos --- con un término latente análogo al de SVD:
+Con ambas matrices, el EFM predice la calificación que el usuario $u$ otorgaría al ítem $i$ sumando dos contribuciones. La primera es un término explícito, el producto interno entre la atención del usuario y la calidad del ítem en el espacio de aspectos, que resulta directamente interpretable. La segunda es un término latente al estilo de la factorización matricial, que captura patrones residuales no explicados por los aspectos:
 \begin{equation} \label{eq:efm_pred}
-	\hat{r}_{u,i} = \alpha \cdot \frac{\mathbf{X}_u^\top \mathbf{Y}_i}{|\mathcal{A}|} + (1 - \alpha) \cdot \mathbf{p}_u^\top \mathbf{q}_i
+	\hat{r}_{u,i} = \alpha \, \frac{\mathbf{X}_u^\top \mathbf{Y}_i}{|\mathcal{A}|} + (1 - \alpha) \, \mathbf{p}_u^\top \mathbf{q}_i,
 \end{equation}
-donde $\alpha \in [0, 1]$ regula la contribución relativa de cada término. La fortaleza estructural del EFM radica en que el componente explícito permite generar justificaciones interpretables del tipo ``\textit{se recomienda Taxco porque valoras positivamente la \texttt{cultura} y la \texttt{naturaleza}, aspectos altamente evaluados por la comunidad en este pueblo}'', conectando directamente la salida del recomendador con la representación aspectual extraída por ABSA (cf. Sección~\ref{sec:xai}). La integración de las dos referencias --- el FC multicriterio de Musto y el EFM de Zhang --- como componentes ortogonales del recomendador híbrido propuesto se desarrolla en el capítulo de metodología.
+donde $\mathbf{p}_u$ y $\mathbf{q}_i$ son los vectores latentes de usuario e ítem, y el escalar $\alpha \in [0, 1]$ regula el peso relativo de cada contribución. La virtud del término explícito es que vincula la salida del recomendador con la representación aspectual extraída del texto. En el modelo original esto habilita justificaciones legibles de la recomendación, como afirmar que se sugiere Taxco porque el usuario valora la \texttt{cultura} y la \texttt{naturaleza}, dos aspectos que la comunidad evalúa de forma sobresaliente en ese pueblo.
 
-%% ============================================================
-%% 2.4  OPTIMIZACIÓN METAHEURÍSTICA
-%% ============================================================
-\section{Optimización metaheurística} \label{sec:metaheuristic}
-
-% Problema: encontrar los pesos óptimos de fusión del sistema híbrido.
-% Formulación: max_{θ} f(θ), donde θ = (α, hiperparámetros del modelo) y f es una métrica de ranking (e.g., NDCG@K).
-% Espacio de búsqueda no convexo, no diferenciable → justificación de metaheurísticas.
-
-% --------------------------------------------------------------
-\subsection{Evolución diferencial} \label{subsec:de}
-
-% Operadores: mutación, cruce, selección.
-% Mutación: v_i = x_{r1} + F·(x_{r2} - x_{r3}), donde F ∈ [0,2] es el factor de escala.
-% Cruce binomial con probabilidad CR.
-% Selección greedy: x_i(t+1) = u_i si f(u_i) ≥ f(x_i(t)), else x_i(t).
-% Variantes: DE/rand/1, DE/best/1, DE/current-to-best/1.
-
-% --------------------------------------------------------------
-\subsection{Optimización por enjambre de partículas (PSO)} \label{subsec:pso}
-
-% Algoritmo inspirado en comportamiento colectivo (bandadas, cardúmenes).
-% Partícula i con posición x_i y velocidad v_i:
-%   v_i(t+1) = ω·v_i(t) + c₁·r₁·(pbest_i - x_i(t)) + c₂·r₂·(gbest - x_i(t))
-%   x_i(t+1) = x_i(t) + v_i(t+1)
-% Parámetros: inercia ω, coeficientes cognitivo c₁ y social c₂.
-% Balance exploración-explotación.
-
-% --------------------------------------------------------------
-\subsection{Optimización bayesiana} \label{subsec:bayesian_opt}
-
-% Modelo sustituto (surrogate): Proceso Gaussiano GP(μ, k) que aproxima f(θ).
-% Función de adquisición: Expected Improvement, UCB, Probability of Improvement.
-%   EI(θ) = E[max(f(θ) - f(θ⁺), 0)]
-% Ventaja: eficiente en evaluaciones costosas (cada evaluación requiere entrenar y evaluar el RecSys completo).
-% Ciclo: evaluar → actualizar GP → optimizar adquisición → siguiente punto.
-
-%% ============================================================
-%% 2.5  EXPLICABILIDAD EN SISTEMAS DE RECOMENDACIÓN
-%% ============================================================
-%\section{Explicabilidad en sistemas de recomendación} \label{sec:xai}
-
-% Motivación: confianza del usuario, transparencia, regulación.
-% Tipos de explicación: feature-based, example-based, textual.
-% En esta tesis: explicabilidad basada en aspectos.
-%   Ejemplo: "Se te recomienda Taxco porque valoras positivamente la cultura y la gastronomía,
-%             aspectos altamente evaluados en este pueblo."
-% Conexión ABSA → explicabilidad: los aspectos extraídos sirven como justificación interpretable.
-% Post-hoc vs inherent interpretability.
+Conviene precisar el alcance con el que esta tesis adopta el EFM. De este modelo se reutilizan las dos matrices de aspectos, la de atención del usuario $\mathbf{X}$ y la de calidad del ítem $\mathbf{Y}$, por su carácter interpretable y porque reflejan de forma transparente las preferencias y las cualidades en términos de aspectos. No se instancia, en cambio, el modelo completo: la propuesta prescinde del término de factores latentes $\mathbf{p}_u^\top \mathbf{q}_i$ de la Ecuación~(\ref{eq:efm_pred}). El componente basado en contenido del híbrido emplea solamente una versión normalizada del término explícito,
+\begin{equation} \label{eq:cbquality}
+	\hat{r}_{u,p} = \frac{\sum_{a \in \mathcal{A}} X_{u,a}\, Y_{p,a}}{\sum_{a \in \mathcal{A}} X_{u,a}},
+\end{equation}
+de manera que la predicción se interpreta como el grado de correspondencia entre la importancia que el usuario asigna a cada aspecto y la calidad del pueblo en ese mismo aspecto, sin recurrir a ninguna factorización latente. La construcción concreta de $\mathbf{X}$ e $\mathbf{Y}$ a partir del corpus REST-MEX y su combinación con el componente colaborativo en el recomendador híbrido se desarrollan en el capítulo de metodología.
