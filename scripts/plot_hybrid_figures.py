@@ -1,5 +1,11 @@
 """
-Figuras del modelo híbrido para el capítulo de metodología.
+Figuras del modelo híbrido para la tesis.
+
+NOTA: superado por scripts/analyze_hybrid_sweep.py, que recomputa el barrido
+localmente con las matrices canónicas (variante D) y reutiliza las funciones
+de graficado de este módulo. El flujo de este script (MLflow + respaldo
+embebido) corresponde al barrido de mayo de 2026 con matrices previas a la
+ablación y ya no refleja los resultados vigentes.
 
 Lee el barrido de alfa registrado en MLflow (experimento pm-rs-alpha-sweep,
 tracking http://0.0.0.0:1825) y genera, todas a K=10:

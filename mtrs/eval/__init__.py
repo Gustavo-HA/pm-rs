@@ -1,5 +1,6 @@
 from .metrics import (
     evaluate_model,
+    evaluate_model_per_user,
     hit_at_k,
     intra_list_diversity,
     mrr,
@@ -10,6 +11,7 @@ from .metrics import (
 
 __all__ = [
     "evaluate_model",
+    "evaluate_model_per_user",
     "hit_at_k",
     "intra_list_diversity",
     "mrr",

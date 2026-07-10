@@ -55,6 +55,34 @@ def intra_list_diversity(recs: list[str], Y: pd.DataFrame) -> float:
     return float(1.0 - triu.mean())
 
 
+def evaluate_model_per_user(
+    model,
+    test_ground_truth: dict[str, set[str]],
+    k: int,
+    Y: pd.DataFrame,
+) -> pd.DataFrame:
+    """Métricas top-K por usuario (una fila por usuario, sin agregar).
+
+    Devuelve un DataFrame indexado por usuario con columnas
+    hit, precision, recall, ndcg, mrr, ild y n_relevant.
+    """
+    rows: dict[str, dict[str, float]] = {}
+    for user, relevant in test_ground_truth.items():
+        recs = [pueblo for pueblo, _ in model.recommend(user, k=k)]
+        rows[user] = {
+            "hit": hit_at_k(recs, relevant),
+            "precision": precision_at_k(recs, relevant),
+            "recall": recall_at_k(recs, relevant),
+            "ndcg": ndcg_at_k(recs, relevant),
+            "mrr": mrr(recs, relevant),
+            "ild": intra_list_diversity(recs, Y),
+            "n_relevant": float(len(relevant)),
+        }
+    df = pd.DataFrame.from_dict(rows, orient="index")
+    df.index.name = "user"
+    return df
+
+
 def evaluate_model(
     model,
     test_ground_truth: dict[str, set[str]],

@@ -10,11 +10,13 @@ basado en aspectos, que segmenta cada reseña y le asigna pares aspecto-sentimie
 modelos Transformer (Sección~\ref{sec:absa}). La salida aumentada con esta información se
 agrega en las tres matrices estructurales $\mathbf{A}$, $\mathbf{X}$ e $\mathbf{Y}$, cuya
 construcción retoma el modelo de factores explícitos del marco teórico y la ajusta con un
-estudio de ablación (Sección~\ref{sec:matrices}). A partir de esas matrices se ajustan los
-tres modelos individuales y se evalúan con métricas de relevancia, diversidad y cobertura
-(Sección~\ref{sec:modelos}). Por último, los dos modelos basados en aspectos se combinan en
-un híbrido de un solo parámetro cuyo barrido traza el compromiso entre relevancia y
-cobertura que da título a este trabajo (Sección~\ref{sec:hibrido}).
+estudio de ablación (Sección~\ref{sec:matrices}). A partir de esas matrices se definen los
+tres modelos individuales y el protocolo con que se evalúan (Sección~\ref{sec:modelos}).
+Por último, los dos modelos basados en aspectos se combinan en un híbrido de un solo
+parámetro y se formula el criterio con que se selecciona su peso de fusión
+(Sección~\ref{sec:hibrido}). Los resultados de la evaluación, el barrido del peso de fusión
+y el análisis del compromiso entre relevancia y cobertura que da título a este trabajo se
+presentan en el Capítulo~\ref{chap:resultados}.
 
 % ============================================================
 \section{Partición del conjunto de datos}\label{sec:split}
@@ -266,17 +268,17 @@ normalizar la señal por su magnitud típica. Para verificar que este ajuste es 
 suficiente se diseñó un estudio de ablación que cruza dos decisiones sobre la construcción de las
 matrices: incorporar o no el escalamiento $T$, y ponderar o no el volumen mediante una compresión
 logarítmica adicional. La Tabla~\ref{tab:ablation} reporta las cuatro variantes resultantes,
-evaluadas con el modelo de contenido a $K=10$.
+evaluadas con el modelo de contenido a $K=20$.
 
 \begin{table}[ht]
 	\centering
 	\caption{Ablación de la construcción de $\mathbf{X}$ e $\mathbf{Y}$. La columna de saturación
 		indica la fracción de entradas de $\mathbf{Y}$ que superan 4.5 sobre un máximo de 5.
-		Resultados del modelo de contenido a $K=10$.}
+		Resultados del modelo de contenido a $K=20$.}
 	\label{tab:ablation}
 	\begin{tabular}{clccc}
 		\toprule
-		\textbf{Variante} & \textbf{Construcción de $\mathbf{Y}$}         & \textbf{$\mathbf{Y}$ saturada} & \textbf{NDCG@10} & \textbf{Cov@10} \\
+		\textbf{Variante} & \textbf{Construcción de $\mathbf{Y}$}         & \textbf{$\mathbf{Y}$ saturada} & \textbf{NDCG@20} & \textbf{Cov@20} \\
 		\midrule
 		A                 & volumen logarítmico $+\,T$                    & 0.013                          & 0.388            & 0.958           \\
 		B                 & forma literal de Zhang (sin $T$)              & 0.979                          & 0.324            & 0.896           \\
@@ -338,58 +340,16 @@ $\hat{r}_{u,p} = \sum_{a} (X_{u,a} / \sum_{a'} X_{u,a'})\, Y_{p,a}$, esto es, el
 correspondencia entre la importancia que el usuario asigna a cada aspecto y la calidad del pueblo
 en ese mismo aspecto, sin recurrir a ningún factor latente. Es la rama de contenido del híbrido.
 
-La Tabla~\ref{tab:modelos} reúne el rendimiento de los tres modelos para $K \in \{5, 10, 20\}$.
-El patrón es nítido y revela una complementariedad que motiva la fusión. CBQuality domina con
-holgura en todas las métricas de relevancia y en todos los cortes: su NDCG@10 de 0.312 más que
-duplica el de los dos modelos colaborativos, y otro tanto ocurre con la exhaustividad y el
-acierto. Este resultado confirma que, bajo la fuerte dispersión del corpus, el emparejamiento de
-perfiles de aspecto recupera preferencias que la escasa coincidencia de calificaciones no permite
-estimar de forma fiable, en coherencia con las ventajas del filtrado de contenido ante el problema
-del arranque en frío. El precio que paga CBQuality es la cobertura: a $K=5$ apenas expone el 43.8\%
-del catálogo, porque tiende a concentrar sus recomendaciones en los pueblos de mayor calidad
-agregada. Los dos modelos colaborativos exhiben el comportamiento opuesto, con cobertura
-prácticamente total y la mayor diversidad intra-lista, pero con una relevancia muy inferior. Entre
-ellos, CFAttention y CFClassic quedan próximos en relevancia, lo que indica que la ventaja de medir
-la afinidad en el espacio de aspectos no se traduce por sí sola en mejor ordenamiento, aunque sí
-aporta la cobertura y la diversidad que a CBQuality le faltan. Esta tensión entre relevancia y
-cobertura es la que el modelo híbrido busca administrar.
-
-\begin{table}[ht]
-	\centering
-	\caption{Rendimiento de los modelos individuales para distintos cortes $K$. P, R y NDCG
-		denotan precisión, exhaustividad y \textit{ranking}; MRR el rango recíproco medio; ILD la
-		diversidad intra-lista; y Cov la cobertura de catálogo.}
-	\label{tab:modelos}
-	\begin{tabular}{llrrrrrr}
-		\toprule
-		\textbf{Modelo} & \textbf{$K$} & \textbf{P@$K$} & \textbf{R@$K$} & \textbf{NDCG@$K$} & \textbf{MRR} & \textbf{ILD} & \textbf{Cov@$K$} \\
-		\midrule
-		CBQuality       & 5            & 0.083          & 0.361          & 0.260             & 0.236        & 0.000        & 0.438            \\
-		                & 10           & 0.059          & 0.516          & 0.312             & 0.256        & 0.000        & 0.646            \\
-		                & 20           & 0.041          & 0.735          & 0.367             & 0.271        & 0.001        & 0.958            \\
-		\midrule
-		CFClassic       & 5            & 0.032          & 0.143          & 0.086             & 0.071        & 0.002        & 0.979            \\
-		                & 10           & 0.032          & 0.289          & 0.134             & 0.092        & 0.002        & 1.000            \\
-		                & 20           & 0.031          & 0.549          & 0.201             & 0.109        & 0.002        & 1.000            \\
-		\midrule
-		CFAttention     & 5            & 0.029          & 0.130          & 0.080             & 0.068        & 0.006        & 0.979            \\
-		                & 10           & 0.029          & 0.258          & 0.122             & 0.086        & 0.006        & 1.000            \\
-		                & 20           & 0.029          & 0.518          & 0.188             & 0.104        & 0.006        & 1.000            \\
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-Conviene precisar que CFClassic se evaluó sobre el subconjunto de usuarios de prueba presentes en
-su matriz de entrenamiento, ligeramente menor al de los modelos basados en aspectos, por lo que su
-comparación directa con ellos debe leerse con esa salvedad. Aun así, la conclusión cualitativa no
-cambia: ninguno de los modelos colaborativos se aproxima a la relevancia del modelo de contenido.
+Los tres modelos se ajustan sobre las mismas matrices y particiones, y su rendimiento
+comparado, junto con las pruebas de significancia que lo sustentan, se reporta en la
+Sección~\ref{sec:res_modelos}.
 
 % ============================================================
 \section{Modelo híbrido y compromiso relevancia--cobertura}\label{sec:hibrido}
 
-El análisis de los modelos individuales muestra que la relevancia y la cobertura provienen de
-componentes distintos: el modelo de contenido aporta el ordenamiento certero y el colaborativo la
-exposición del catálogo. El híbrido las combina mediante la fusión convexa de la
+Como se documenta en el Capítulo~\ref{chap:resultados}, la relevancia y la cobertura provienen
+de componentes distintos: el modelo de contenido aporta el ordenamiento certero y el
+colaborativo la exposición del catálogo. El híbrido las combina mediante la fusión convexa de la
 Ecuación~(\ref{eq:hybrid}), restringida a las dos ramas basadas en aspectos,
 \begin{equation}\label{eq:hybrid_final}
 	\hat{y}_{u,p}(\alpha) = \alpha\, \hat{y}^{\,\mathrm{CFAttention}}_{u,p} + (1 - \alpha)\, \hat{y}^{\,\mathrm{CBQuality}}_{u,p},
@@ -398,63 +358,12 @@ Ecuación~(\ref{eq:hybrid}), restringida a las dos ramas basadas en aspectos,
 Ambas ramas se ajustan una sola vez y el parámetro $\alpha$ se limita a reponderar sus
 predicciones, por lo que recorrer todo el rango de fusión es computacionalmente trivial. El
 extremo $\alpha = 0$ recupera el modelo de contenido puro y el extremo $\alpha = 1$ el
-colaborativo, de modo que la Tabla~\ref{tab:modelos} ya contiene los dos vértices de la fusión.
-
-La Figura~\ref{fig:alpha_sweep} traza el barrido de $\alpha$ a $K=10$. Las dos métricas se mueven
-en direcciones opuestas y de forma monótona: el NDCG@10 desciende de forma continua desde 0.312 en
-$\alpha=0$ hasta 0.122 en $\alpha=1$, mientras que la cobertura asciende desde 0.646 hasta
-saturarse en 1.0 alrededor de $\alpha \approx 0.8$. La relevancia, por tanto, proviene de CBQuality
-y la cobertura de CFAttention, y no existe un valor de $\alpha$ que maximice ambas
-simultáneamente. Esta es la manifestación empírica del compromiso multiobjetivo formalizado en la
-Sección~\ref{sec:moo}.
-
-\begin{figure}[ht]
-	\centering
-	\includegraphics[width=0.72\textwidth]{figures/alpha_sweep.pdf}
-	\caption[Barrido del peso de fusión]{Relevancia (NDCG@10) y cobertura (Cov@10) en función del
-		peso de fusión $\alpha$. Al aumentar $\alpha$ la relevancia decrece y la cobertura crece
-		hasta saturarse, lo que evidencia el conflicto entre ambos objetivos.}
-	\label{fig:alpha_sweep}
-\end{figure}
+colaborativo, de modo que la evaluación de los modelos individuales contiene ya los dos
+vértices de la fusión.
 
 La selección de un único $\alpha$ se resuelve escalarizando los dos objetivos con un peso de
 preferencia $\beta$, según la Ecuación~(\ref{eq:scalarization}), y leyendo el óptimo
-$\alpha^{\star}(\beta)$ directamente del barrido como indica la Ecuación~(\ref{eq:alpha_star}). La
-Figura~\ref{fig:alpha_vs_beta} presenta el análisis de sensibilidad resultante. A medida que la
-preferencia se inclina hacia la relevancia, esto es, conforme $\beta$ crece, el óptimo migra en
-escalera desde un régimen colaborativo, con $\alpha^{\star} \approx 0.8$ cuando solo importa la
-cobertura, hacia el modelo de contenido puro, con $\alpha^{\star} \to 0$ cuando solo importa la
-relevancia. Resulta ilustrativo que el óptimo nunca rebase $\alpha^{\star} = 0.8$: como la
-cobertura ya alcanza su máximo en ese punto, cualquier incremento adicional de $\alpha$ solo
-sacrificaría relevancia sin ganar cobertura, por lo que esas configuraciones quedan descartadas.
-
-\begin{figure}[ht]
-	\centering
-	\includegraphics[width=0.75\textwidth]{figures/alphaVSbeta.pdf}
-	\caption[Análisis de sensibilidad del óptimo]{Trayectoria del óptimo $\alpha^{\star}(\beta)$
-		(escalera) y métricas alcanzadas en él. Al priorizar la relevancia ($\beta$ creciente) el
-		óptimo se desplaza de un filtrado colaborativo a uno basado en contenido, mientras la
-		cobertura cede terreno y el NDCG@10 aumenta.}
-	\label{fig:alpha_vs_beta}
-\end{figure}
-
-Finalmente, la Figura~\ref{fig:pareto_realized} representa el frente de Pareto realizado del
-sistema en el plano cobertura-relevancia, el análogo empírico del frente teórico de la
-Figura~\ref{fig:pareto_front}. Cada punto corresponde a un valor de $\alpha$; los puntos no
-dominados, que ningún otro supera a la vez en relevancia y cobertura, forman la frontera eficiente
-sobre la que debe situarse cualquier elección razonable de fusión. Las configuraciones con
-$\alpha > 0.8$ quedan por debajo de la frontera, dominadas por $\alpha = 0.8$, que alcanza la misma
-cobertura máxima con mayor relevancia. La trayectoria $\alpha^{\star}(\beta)$ recorre esta frontera
-de un extremo al otro, y la elección final del peso de fusión deja de ser una cuestión técnica para
-convertirse en una decisión de diseño sobre cuánta relevancia se está dispuesto a ceder a cambio de
-exponer una mayor parte del catálogo.
-
-\begin{figure}[ht]
-	\centering
-	\includegraphics[width=0.68\textwidth]{figures/pareto_realized.pdf}
-	\caption[Frente de Pareto realizado]{Frente de Pareto realizado del híbrido en el plano
-		Cov@10--NDCG@10. Cada punto es un valor de $\alpha$; los puntos resaltados son no dominados
-		y conforman la frontera eficiente. Las configuraciones con $\alpha > 0.8$ quedan dominadas
-		por $\alpha = 0.8$.}
-	\label{fig:pareto_realized}
-\end{figure}
+$\alpha^{\star}(\beta)$ directamente del barrido como indica la
+Ecuación~(\ref{eq:alpha_star}). El barrido completo del peso de fusión, el análisis de
+sensibilidad del óptimo y el frente de Pareto realizado que ambos inducen se presentan en la
+Sección~\ref{sec:res_hibrido}.

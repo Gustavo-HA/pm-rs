@@ -28,7 +28,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from mtrs.aggregation.matrices import (
     compute_rating_matrix,
     compute_user_aspect_importance,
-    compute_pueblo_aspect_quality,
+    compute_pueblo_aspect_quality_zhang_T,
 )
 
 logging.basicConfig(
@@ -87,8 +87,8 @@ def main() -> None:
     X = compute_user_aspect_importance(df_absa)
     _log_shape("X", X)
 
-    logger.info("Y — Pueblo-aspect quality (p × j)")
-    Y = compute_pueblo_aspect_quality(df_absa)
+    logger.info("Y — Pueblo-aspect quality (p × j) — variante D de la ablación")
+    Y = compute_pueblo_aspect_quality_zhang_T(df_absa)
     _log_shape("Y", Y)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
